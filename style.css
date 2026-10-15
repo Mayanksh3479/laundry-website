@@ -19,3 +19,12 @@ main {
     display: flex;
     gap: 40px;
 }
+table {
+  border-collapse: collapse;
+  background-color: white;
+}
+th, td {
+  padding: 10px 16px;
+  border-bottom: 1px solid #d9e2ec;
+  text-align: left;
+}
