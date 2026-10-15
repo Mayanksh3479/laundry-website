@@ -1,3 +1,7 @@
+* {
+  box-sizing: border-box;
+}
+
 body {
   background-color: lightblue;
   font-family: Arial, sans-serif;
@@ -53,6 +57,18 @@ input {
   padding: 10px;
   border: 1px solid #b8c4d0;
   border-radius: 6px;
+  font-size: 16px; 
+}
+button {
+  margin-top: 20px;
+  padding: 12px 24px;
+  background-color: #1e5aa8;
+  color: white;
+  border: none;
+  border-radius: 6px;
   font-size: 16px;
-  box-sizing: content-box;
+  cursor: pointer;
+}
+button:hover {
+  background-color: #174a8c;
 }
