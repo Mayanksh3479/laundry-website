@@ -1,0 +1,21 @@
+body {
+  background-color: lightblue;
+  font-family: Arial, sans-serif;
+  margin: 0;
+}
+h1 {
+  background-color: #111827;
+  color: #F9FAFB;
+  padding: 20px;
+  text-align: center;
+  margin: 0;
+  font-size: 42px;
+  letter-spacing: 2px;
+}
+main {
+  padding: 20px;
+}
+.price-lists{
+    display: flex;
+    gap: 40px;
+}
