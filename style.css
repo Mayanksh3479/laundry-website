@@ -18,6 +18,7 @@ main {
 .price-lists{
     display: flex;
     gap: 40px;
+    flex-wrap: wrap;
 }
 table {
   border-collapse: collapse;
@@ -27,4 +28,8 @@ th, td {
   padding: 10px 16px;
   border-bottom: 1px solid #d9e2ec;
   text-align: left;
+}
+th {
+  background-color: #1e5aa8;
+  color: white;
 }
