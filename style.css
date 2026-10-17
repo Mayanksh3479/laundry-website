@@ -78,3 +78,6 @@ button:hover {
   padding: 0 16px 16px;
   margin-top: 16px;
 }
+.remove-item {
+  background-color: #b42318;
+}
