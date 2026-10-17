@@ -81,3 +81,6 @@ button:hover {
 .remove-item {
   background-color: #b42318;
 }
+.item-row:only-child .remove-item {
+  display: none;
+}
