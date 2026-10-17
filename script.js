@@ -9,6 +9,28 @@ const itemsContainer = document.getElementById("items");
 
 const MAX_QUANTITY = 3;
 let nextPhotoInputId = 1;
+// Delivery window (24-hour clock). Change these two numbers to change the slots.
+const DELIVERY_START_HOUR = 9;   // first slot: 9:00 AM
+const DELIVERY_END_HOUR = 20;    // last slot: 8:00 PM
+
+const deliveryDateInput = document.getElementById("delivery-date");
+const deliveryTimeSelect = document.getElementById("delivery-time");
+
+function formatHour(hour) {
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${displayHour}:00 ${suffix}`;
+}
+
+for (let hour = DELIVERY_START_HOUR; hour <= DELIVERY_END_HOUR; hour++) {
+  const option = document.createElement("option");
+  option.value = String(hour);
+  option.textContent = formatHour(hour);
+  deliveryTimeSelect.appendChild(option);
+}
+
+document.getElementById("delivery-window").textContent =
+  `We deliver between ${formatHour(DELIVERY_START_HOUR)} and ${formatHour(DELIVERY_END_HOUR)}.`;
 
 // Every real category, read once from the datalist in the HTML
 const validCategories = Array.from(
