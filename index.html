@@ -229,14 +229,84 @@
                     title="Enter the time like 6:30 PM"
                     required
                 >
+                    <h3>Your items</h3>
 
-                <label for="photo">Photo of items</label>
-                <input
-                    type="file"
-                    id="photo"
-                    name="photo"
-                    accept="image/*"
-                >
+                    <div id="items">
+                        <div class="item-row">
+                            <label>
+                                Category
+                                <input
+                                type="text"
+                                name="item_category"
+                                list="category-list"
+                                placeholder="Type to search, e.g. Shirt"
+                                autocomplete="off"
+                                required
+                                >
+                            </label>
+
+                            <label>
+                                Photo
+                                <input type="file" name="item_photo" accept="image/*" required>
+                            </label>
+                        </div>
+                    </div>
+                    <datalist id="category-list">
+    <option value="Gents - Coat Pant"></option>
+    <option value="Gents - Coat Single"></option>
+    <option value="Gents - Long Coat"></option>
+    <option value="Gents - Sherwani"></option>
+    <option value="Gents - Jersey Half"></option>
+    <option value="Gents - Jersey Full"></option>
+    <option value="Gents - Jacket"></option>
+    <option value="Gents - Jacket With Cap"></option>
+    <option value="Gents - Jacket Reversible"></option>
+    <option value="Gents - Jacket Leather"></option>
+    <option value="Gents - Waist Coat"></option>
+    <option value="Gents - Sweater Zipper"></option>
+    <option value="Gents - Hoodies Zipper"></option>
+    <option value="Gents - Pants"></option>
+    <option value="Gents - Shirt"></option>
+    <option value="Gents - T-Shirt"></option>
+    <option value="Gents - Kurta Pajama"></option>
+    <option value="Gents - Track Suit"></option>
+    <option value="Gents - Gram Pajama"></option>
+    <option value="Gents - Sports Shoes"></option>
+    <option value="Gents - School Bag"></option>
+    <option value="Gents - Office Bag"></option>
+    <option value="Gents - Muffler"></option>
+    <option value="Gents - Tie"></option>
+    <option value="Gents - Cap"></option>
+    <option value="Gents - Mask"></option>
+    <option value="Gents - Lohi"></option>
+    <option value="Ladies - Suit 3p"></option>
+    <option value="Ladies - Suit Light"></option>
+    <option value="Ladies - Suit (Light Work)"></option>
+    <option value="Ladies - Suit Single"></option>
+    <option value="Ladies - Lehanga Choli Dupatta"></option>
+    <option value="Ladies - Lehanga Bridal"></option>
+    <option value="Ladies - Dupatta"></option>
+    <option value="Ladies - Western Dress"></option>
+    <option value="Ladies - Top Single"></option>
+    <option value="Ladies - Top Party Wear"></option>
+    <option value="Ladies - Dress Heavy"></option>
+    <option value="Ladies - Jeans"></option>
+    <option value="Ladies - Shawl"></option>
+    <option value="Ladies - Pashmina Shawl"></option>
+    <option value="Ladies - Stole"></option>
+    <option value="Ladies - Saree"></option>
+    <option value="Ladies - Blouse"></option>
+    <option value="Ladies - Long Kurta Boolan"></option>
+    <option value="Ladies - Jersey Half"></option>
+    <option value="Ladies - Jersey Full"></option>
+    <option value="Ladies - Coat Pant"></option>
+    <option value="Ladies - Gown"></option>
+    <option value="Ladies - Gown Heavy"></option>
+    <option value="Ladies - Frock"></option>
+    <option value="Ladies - Pullover &amp; Cardigan"></option>
+</datalist>
+
+<button type="button" id="add-item">+ Add another item</button>
             
 
                 <button type="submit">Send Request</button>
