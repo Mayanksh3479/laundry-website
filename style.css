@@ -72,3 +72,9 @@ button {
 button:hover {
   background-color: #174a8c;
 }
+.item-row {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 0 16px 16px;
+  margin-top: 16px;
+}
