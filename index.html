@@ -11,14 +11,16 @@
 
 <body>
     <h1>Super Care Dry Cleaners</h1>
-    <a href="login.html" class="login-btn">
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="8" r="4"></circle>
-        <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"></path>
-    </svg>
-    Log in
+
+    <a href="login.html" id="login-link" class="login-btn">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="8" r="4"></circle>
+            <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"></path>
+        </svg>
+        Log in
     </a>
+    <button type="button" id="logout-btn" class="login-btn" hidden>Log out</button>
 
     <main>
         <p>Welcome to Super Care Dry Cleaners!</p>
@@ -215,6 +217,11 @@
         <section>
             <h2>Request a Pickup</h2>
 
+            <div id="login-notice" hidden>
+                <p>Please log in to request a pickup.</p>
+                <a href="login.html" class="button-link">Log in or create account</a>
+            </div>
+
             <form id="pickup-form">
                 <label for="delivery-date">Deliver back on (date)</label>
                 <input
@@ -230,7 +237,7 @@
 
                 <label for="delivery-time">Deliver back by (time)</label>
                 <select id="delivery-time" name="delivery_time" required>
-                <option value="">Select an hour</option>
+                <option value="">Select a time</option>
                 </select>
                 <p id="delivery-window" class="form-note"></p>
 
