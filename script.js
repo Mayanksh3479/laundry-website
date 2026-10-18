@@ -1,15 +1,31 @@
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
 
-
-
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const form = document.getElementById("pickup-form");
 const addButton = document.getElementById("add-item");
 const itemsContainer = document.getElementById("items");
+const dateInput = document.getElementById("delivery-date");
+const timeInput = document.getElementById("delivery-time");
+
+if (!timeInput) {
+  console.error(
+    'No element with id="delivery-time" was found. Check the id of the time field in index.html.'
+  );
+}
 
 const MAX_QUANTITY = 3;
+
+// Delivery hours (24-hour clock) and the gap between choices in the time dropdown
+const OPEN_HOUR = 9;
+const CLOSE_HOUR = 20;
+const TIME_STEP_MINUTES = 30;
+
+// Photos are shrunk in the browser before they are uploaded
+const PHOTO_BUCKET = "request-photos";
+const MAX_PHOTO_SIDE = 1600;
+const PHOTO_QUALITY = 0.8;
 let nextPhotoInputId = 1;
 
 // Every real category, read once from the datalist in the HTML
@@ -19,29 +35,132 @@ const validCategories = Array.from(
   return option.value;
 });
 
-function buildDeliveryDate(dateText, timeText) {
-  const [day, month, year] = dateText.split("/").map(Number);
-  const match = timeText.trim().match(/^(\d{1,2}):(\d{2})\s?(am|pm)$/i);
-
+// Reads a date typed as DD/MM/YYYY.
+// Returns { day, month, year }, or null if it is not a real date.
+function parseDate(dateText) {
+  const match = dateText.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (!match) return null;
 
-  let hour = Number(match[1]);
-  const minute = Number(match[2]);
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
 
-  if (hour === 12) hour = 0;
-  if (match[3].toLowerCase() === "pm") hour += 12;
-
-  const date = new Date(year, month - 1, day, hour, minute);
-
+  // Catches fake dates such as 31/02/2026
+  const check = new Date(year, month - 1, day);
   if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
+    check.getFullYear() !== year ||
+    check.getMonth() !== month - 1 ||
+    check.getDate() !== day
   ) {
     return null;
   }
 
-  return date;
+  return { day, month, year };
+}
+
+// Reads a time such as "6:30 PM", "6 PM", "09:00" or "18".
+// Returns { hour, minute } in 24-hour form, or null if it is not a valid time.
+function parseTime(timeText) {
+  const match = timeText
+    .trim()
+    .match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*(am|pm)?$/i);
+
+  if (!match) return null;
+
+  let hour = Number(match[1]);
+  const minute = match[2] === undefined ? 0 : Number(match[2]);
+  const period = match[3] ? match[3].toLowerCase() : null;
+
+  if (minute > 59) return null;
+
+  if (period) {
+    // 12-hour clock: the hour must be 1 to 12
+    if (hour < 1 || hour > 12) return null;
+    if (hour === 12) hour = 0;
+    if (period === "pm") hour += 12;
+  } else if (hour > 23) {
+    // 24-hour clock: the hour must be 0 to 23
+    return null;
+  }
+
+  return { hour, minute };
+}
+
+// Fills the time dropdown with 9:00 AM, 9:30 AM ... 8:00 PM
+function fillTimeOptions() {
+  timeInput.innerHTML = '<option value="">Select a time</option>';
+
+  for (
+    let total = OPEN_HOUR * 60;
+    total <= CLOSE_HOUR * 60;
+    total += TIME_STEP_MINUTES
+  ) {
+    const hour24 = Math.floor(total / 60);
+    const minute = total % 60;
+    const period = hour24 >= 12 ? "PM" : "AM";
+    const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+    const label = `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
+
+    const option = document.createElement("option");
+    option.value = label;
+    option.textContent = label;
+    timeInput.appendChild(option);
+  }
+}
+
+// Only a dropdown needs filling. A typed time box works as it is.
+if (timeInput && timeInput.tagName === "SELECT") {
+  fillTimeOptions();
+}
+
+// Shrinks a photo to at most MAX_PHOTO_SIDE pixels on its longest side
+// and returns it as a JPEG file (usually a few hundred KB instead of several MB)
+async function compressPhoto(file) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  return new Promise(function (resolve, reject) {
+    canvas.toBlob(
+      function (blob) {
+        if (blob) resolve(blob);
+        else reject(new Error("Could not compress the photo"));
+      },
+      "image/jpeg",
+      PHOTO_QUALITY
+    );
+  });
+}
+
+// Uploads every photo and returns the storage paths, one list per item,
+// e.g. [["<id>/item1-photo1.jpg", "<id>/item1-photo2.jpg"], ["<id>/item2-photo1.jpg"]]
+async function uploadPhotos(requestId, items) {
+  const allPaths = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const itemPaths = [];
+
+    for (let j = 0; j < items[i].photos.length; j++) {
+      const blob = await compressPhoto(items[i].photos[j]);
+      const path = `${requestId}/item${i + 1}-photo${j + 1}.jpg`;
+
+      const { error } = await db.storage
+        .from(PHOTO_BUCKET)
+        .upload(path, blob, { contentType: "image/jpeg" });
+
+      if (error) throw error;
+      itemPaths.push(path);
+    }
+
+    allPaths.push(itemPaths);
+  }
+
+  return allPaths;
 }
 
 // Frees the preview of one photo slot and hides it again
@@ -279,8 +398,6 @@ itemsContainer.addEventListener("input", function (event) {
 });
 
 // Adds the slashes automatically while the customer types the date
-const dateInput = document.getElementById("delivery-date");
-
 dateInput.addEventListener("input", function (event) {
   const raw = dateInput.value;
   const digits = raw.replace(/\D/g, "").slice(0, 8);
@@ -304,14 +421,32 @@ dateInput.addEventListener("input", function (event) {
 form.addEventListener("submit", async function (event) {
   event.preventDefault();
 
-  const dateText = document.getElementById("delivery-date").value;
-  const timeText = document.getElementById("delivery-time").value;
-  const deliveryDate = buildDeliveryDate(dateText, timeText);
-
-  if (!deliveryDate) {
-    alert("Please enter a real date and time.");
+  // 1. Check the delivery date and time
+  if (!timeInput) {
+    alert("The time field is missing from the page.");
     return;
   }
+
+  const dateParts = parseDate(dateInput.value);
+  if (!dateParts) {
+    alert("Please enter a real date, like 25/12/2026.");
+    return;
+  }
+
+  const timeParts = parseTime(timeInput.value);
+  if (!timeParts) {
+    console.log("Could not read the time:", JSON.stringify(timeInput.value));
+    alert("Please choose a delivery time, like 6:30 PM.");
+    return;
+  }
+
+  const deliveryDate = new Date(
+    dateParts.year,
+    dateParts.month - 1,
+    dateParts.day,
+    timeParts.hour,
+    timeParts.minute
+  );
 
   if (deliveryDate <= new Date()) {
     alert("The delivery time must be in the future.");
@@ -319,11 +454,12 @@ form.addEventListener("submit", async function (event) {
   }
 
   const minutes = deliveryDate.getHours() * 60 + deliveryDate.getMinutes();
-  if (minutes < 9 * 60 || minutes > 20 * 60) {
+  if (minutes < OPEN_HOUR * 60 || minutes > CLOSE_HOUR * 60) {
     alert("We deliver between 9:00 AM and 8:00 PM.");
     return;
   }
 
+  // 2. Collect and check every item row
   const items = [];
   const rows = document.querySelectorAll(".item-row");
 
@@ -360,45 +496,44 @@ form.addEventListener("submit", async function (event) {
     items.push({ category, quantity, photos });
   }
 
-  // 3. Save the request, then its items
+  // 3. Upload the photos, then save the request and its items
   const submitButton = form.querySelector('button[type="submit"]');
+  const submitLabel = submitButton.textContent;
   submitButton.disabled = true;
+  submitButton.textContent = "Sending...";
 
-  // The browser makes the id itself, so we can attach the items to it
+  // The browser makes the id itself, so photos and items can be attached to it
   const requestId = crypto.randomUUID();
 
-  const { error: requestError } = await db.from("pickup_requests").insert({
-    id: requestId,
-    delivery_time: deliveryDate.toISOString(),
-  });
+  try {
+    const photoPaths = await uploadPhotos(requestId, items);
 
-  if (requestError) {
-    console.log("Request failed:", requestError.message);
+    const { error: requestError } = await db.from("pickup_requests").insert({
+      id: requestId,
+      delivery_time: deliveryDate.toISOString(),
+    });
+    if (requestError) throw requestError;
+
+    const itemRows = items.map(function (item, index) {
+      return {
+        request_id: requestId,
+        category: item.category,
+        quantity: item.quantity,
+        photo_paths: photoPaths[index],
+      };
+    });
+
+    const { error: itemsError } = await db.from("request_items").insert(itemRows);
+    if (itemsError) throw itemsError;
+
+    alert("Request sent! We will contact you soon.");
+    form.reset();
+    resetItemRows();
+  } catch (error) {
+    console.log("Sending failed:", error.message);
     alert("Sorry, we could not send your request. Please try again.");
+  } finally {
     submitButton.disabled = false;
-    return;
+    submitButton.textContent = submitLabel;
   }
-
-  const itemRows = items.map(function (item) {
-    return {
-      request_id: requestId,
-      category: item.category,
-      quantity: item.quantity,
-    };
-  });
-
-  const { error: itemsError } = await db.from("request_items").insert(itemRows);
-
-  if (itemsError) {
-    console.log("Items failed:", itemsError.message);
-    alert("Sorry, we could not send your request. Please try again.");
-    submitButton.disabled = false;
-    return;
-  }
-
-  // The photos are not uploaded yet. That is the next step.
-  alert("Request sent! We will contact you soon.");
-  form.reset();
-  resetItemRows();
-  submitButton.disabled = false;
 });

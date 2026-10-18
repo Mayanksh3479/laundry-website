@@ -1,0 +1,90 @@
+/* Extra styles for login.html. Loaded after style.css. */
+
+.auth-card {
+  max-width: 460px;
+  margin: 30px auto;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid #d9e2ec;
+}
+
+.auth-tab {
+  flex: 1;
+  margin-top: 0;
+  padding: 12px;
+  background: none;
+  color: #4b5b6b;
+  border-radius: 6px 6px 0 0;
+  border-bottom: 3px solid transparent;
+  font-weight: bold;
+}
+
+.auth-tab:hover {
+  background-color: #eef3f9;
+}
+
+.auth-tab.active {
+  color: #1e5aa8;
+  border-bottom-color: #1e5aa8;
+}
+
+.auth-card input {
+  max-width: none;
+}
+
+.auth-card form button[type="submit"] {
+  width: 100%;
+}
+
+.auth-message {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 15px;
+}
+
+.auth-message[hidden] {
+  display: none;
+}
+
+.auth-message.error {
+  background: #fdecea;
+  color: #b42318;
+}
+
+.auth-message.success {
+  background: #e7f6ec;
+  color: #1a6b3a;
+}
+
+.link-button {
+  display: block;
+  margin: 12px auto 0;
+  padding: 4px;
+  background: none;
+  color: #1e5aa8;
+  font-size: 14px;
+  text-decoration: underline;
+}
+
+.link-button:hover {
+  background: none;
+  color: #174a8c;
+}
+
+.link-button[hidden] {
+  display: none;
+}
+
+.auth-back {
+  margin: 20px 0 0;
+  text-align: center;
+  font-size: 14px;
+}
+
+#signup-fields[hidden] {
+  display: none;
+}

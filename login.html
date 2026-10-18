@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Log in | Super Care Dry Cleaners</title>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="login.css">
+</head>
+
+<body>
+    <h1>Super Care Dry Cleaners</h1>
+
+    <main>
+        <section class="auth-card">
+            <div class="auth-tabs" role="tablist">
+                <button type="button" id="tab-login" class="auth-tab active" role="tab" aria-selected="true">Log in</button>
+                <button type="button" id="tab-signup" class="auth-tab" role="tab" aria-selected="false">Create account</button>
+            </div>
+
+            <form id="auth-form" novalidate>
+                <div id="signup-fields" hidden>
+                    <label for="full-name">Full name</label>
+                    <input type="text" id="full-name" name="full_name" autocomplete="name">
+
+                    <label for="phone">Phone number</label>
+                    <input type="tel" id="phone" name="phone" inputmode="numeric"
+                           placeholder="10-digit mobile number" autocomplete="tel-national">
+                </div>
+
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" autocomplete="email" required>
+
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password"
+                       autocomplete="current-password" minlength="6" required>
+
+                <p id="auth-message" class="auth-message" role="alert" hidden></p>
+
+                <button type="submit" id="auth-submit">Log in</button>
+                <button type="button" id="forgot-password" class="link-button">Forgot your password?</button>
+            </form>
+
+            <p class="auth-back"><a href="index.html">Back to home</a></p>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="login.js"></script>
+</body>
+</html>
