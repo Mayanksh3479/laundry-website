@@ -1,6 +1,8 @@
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
 
+
+
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const form = document.getElementById("pickup-form");
@@ -9,28 +11,6 @@ const itemsContainer = document.getElementById("items");
 
 const MAX_QUANTITY = 3;
 let nextPhotoInputId = 1;
-// Delivery window (24-hour clock). Change these two numbers to change the slots.
-const DELIVERY_START_HOUR = 9;   // first slot: 9:00 AM
-const DELIVERY_END_HOUR = 20;    // last slot: 8:00 PM
-
-const deliveryDateInput = document.getElementById("delivery-date");
-const deliveryTimeSelect = document.getElementById("delivery-time");
-
-function formatHour(hour) {
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-  return `${displayHour}:00 ${suffix}`;
-}
-
-for (let hour = DELIVERY_START_HOUR; hour <= DELIVERY_END_HOUR; hour++) {
-  const option = document.createElement("option");
-  option.value = String(hour);
-  option.textContent = formatHour(hour);
-  deliveryTimeSelect.appendChild(option);
-}
-
-document.getElementById("delivery-window").textContent =
-  `We deliver between ${formatHour(DELIVERY_START_HOUR)} and ${formatHour(DELIVERY_END_HOUR)}.`;
 
 // Every real category, read once from the datalist in the HTML
 const validCategories = Array.from(
@@ -174,6 +154,19 @@ function updateAllPhotoSlots() {
   });
 }
 
+// After a successful send: back to one empty row with one empty photo slot
+function resetItemRows() {
+  const rows = itemsContainer.querySelectorAll(".item-row");
+
+  rows.forEach(function (row, index) {
+    row.querySelectorAll(".photo-preview").forEach(clearPreview);
+    if (index > 0) row.remove();
+  });
+
+  itemsContainer.querySelector(".photo-slots").innerHTML = "";
+  updateAllPhotoSlots();
+}
+
 // Create a lightbox for viewing selected photos.
 const lightbox = document.createElement("dialog");
 lightbox.className = "photo-lightbox";
@@ -285,7 +278,30 @@ itemsContainer.addEventListener("input", function (event) {
   }
 });
 
-form.addEventListener("submit", function (event) {
+// Adds the slashes automatically while the customer types the date
+const dateInput = document.getElementById("delivery-date");
+
+dateInput.addEventListener("input", function (event) {
+  const raw = dateInput.value;
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+
+  const deleting = !!event.inputType && event.inputType.startsWith("delete");
+  const keepSlash = !deleting || raw.endsWith("/");
+
+  let formatted = digits.slice(0, 2);
+
+  if (digits.length > 2 || (digits.length === 2 && keepSlash)) {
+    formatted += "/" + digits.slice(2, 4);
+  }
+
+  if (digits.length > 4 || (digits.length === 4 && keepSlash)) {
+    formatted += "/" + digits.slice(4, 8);
+  }
+
+  dateInput.value = formatted;
+});
+
+form.addEventListener("submit", async function (event) {
   event.preventDefault();
 
   const dateText = document.getElementById("delivery-date").value;
@@ -344,7 +360,45 @@ form.addEventListener("submit", function (event) {
     items.push({ category, quantity, photos });
   }
 
-  // Nothing is saved yet. Next step: send these to Supabase and upload the photos.
-  console.log("Delivery:", deliveryDate.toISOString());
-  console.log("Items:", items);
+  // 3. Save the request, then its items
+  const submitButton = form.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+
+  // The browser makes the id itself, so we can attach the items to it
+  const requestId = crypto.randomUUID();
+
+  const { error: requestError } = await db.from("pickup_requests").insert({
+    id: requestId,
+    delivery_time: deliveryDate.toISOString(),
+  });
+
+  if (requestError) {
+    console.log("Request failed:", requestError.message);
+    alert("Sorry, we could not send your request. Please try again.");
+    submitButton.disabled = false;
+    return;
+  }
+
+  const itemRows = items.map(function (item) {
+    return {
+      request_id: requestId,
+      category: item.category,
+      quantity: item.quantity,
+    };
+  });
+
+  const { error: itemsError } = await db.from("request_items").insert(itemRows);
+
+  if (itemsError) {
+    console.log("Items failed:", itemsError.message);
+    alert("Sorry, we could not send your request. Please try again.");
+    submitButton.disabled = false;
+    return;
+  }
+
+  // The photos are not uploaded yet. That is the next step.
+  alert("Request sent! We will contact you soon.");
+  form.reset();
+  resetItemRows();
+  submitButton.disabled = false;
 });

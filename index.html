@@ -221,15 +221,10 @@
                 >
 
                 <label for="delivery-time">Deliver back by (time)</label>
-                <input
-                    type="text"
-                    id="delivery-time"
-                    name="delivery_time_text"
-                    placeholder="06:30 PM"
-                    pattern="(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM|am|pm)"
-                    title="Enter the time like 6:30 PM"
-                    required
-                >
+                <select id="delivery-time" name="delivery_time" required>
+                <option value="">Select an hour</option>
+                </select>
+                <p id="delivery-window" class="form-note"></p>
 
                 <h3>Your items</h3>
 
