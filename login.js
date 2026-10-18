@@ -89,17 +89,47 @@ tabSignup.addEventListener("click", function () {
   setMode("signup");
 });
 
-// Turns Supabase errors into plain language
+// Turns Supabase errors into a clear reason the customer can act on
 function friendlyError(error) {
+  const code = (error.code || "").toLowerCase();
   const text = (error.message || "").toLowerCase();
 
-  if (text.includes("invalid login")) return "Email or password is incorrect.";
-  if (text.includes("already registered")) return "This email already has an account. Try logging in.";
-  if (text.includes("email not confirmed")) return "Please confirm your email first. Check your inbox.";
-  if (text.includes("rate limit")) return "Too many attempts. Please wait a few minutes and try again.";
-  if (text.includes("password")) return "Password needs at least 6 characters, with a capital letter, a small letter and a number.";
+  if (code === "invalid_credentials" || text.includes("invalid login")) {
+    return "Email or password is incorrect.";
+  }
+  if (code === "email_not_confirmed" || text.includes("email not confirmed")) {
+    return "Please confirm your email first. Check your inbox for the link.";
+  }
+  if (code === "user_already_exists" || text.includes("already registered")) {
+    return "This email already has an account. Log in instead.";
+  }
+  if (code === "weak_password" || text.includes("password should")) {
+    return "Password is too weak. Use at least 6 characters with a capital letter, a small letter and a number.";
+  }
+  if (code === "email_address_invalid" || text.includes("invalid email")) {
+    return "This email address is not valid. Check it and try again.";
+  }
+  if (code === "signup_disabled" || text.includes("signups not allowed")) {
+    return "New sign-ups are turned off right now. Please contact the shop.";
+  }
+  if (
+    code === "over_request_rate_limit" ||
+    code === "over_email_send_rate_limit" ||
+    text.includes("rate limit")
+  ) {
+    return "Too many attempts. Please wait a few minutes and try again.";
+  }
+  if (text.includes("database error")) {
+    return "Your details could not be saved. This mobile number or email may already be in use.";
+  }
+  if (text.includes("failed to fetch") || text.includes("network")) {
+    return "Cannot reach the server. Check your internet connection and try again.";
+  }
 
-  return "Something went wrong. Please try again.";
+  // Anything else: show the real reason instead of a vague message
+  return error.message
+    ? "Could not continue: " + error.message
+    : "Could not continue. Please try again.";
 }
 
 form.addEventListener("submit", async function (event) {
