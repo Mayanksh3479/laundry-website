@@ -34,8 +34,24 @@
                 <input type="email" id="email" name="email" autocomplete="email" required>
 
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password"
-                       autocomplete="current-password" minlength="6" required>
+                <div class="password-wrap">
+                    <input type="password" id="password" name="password"
+                           autocomplete="current-password" minlength="6" required>
+                    <button type="button" class="toggle-pass" aria-label="Show password">Show password</button>
+                </div>
+
+                <div id="confirm-field" hidden>
+                    <label for="confirm-password">Confirm password</label>
+                    <div class="password-wrap">
+                        <input type="password" id="confirm-password" name="confirm_password"
+                               autocomplete="new-password">
+                        <button type="button" class="toggle-pass" aria-label="Show password">Show password</button>
+                    </div>
+                </div>
+
+                <p id="password-hint" class="password-hint" hidden>
+                    Use at least 6 characters with a capital letter, a small letter and a number.
+                </p>
 
                 <p id="auth-message" class="auth-message" role="alert" hidden></p>
 

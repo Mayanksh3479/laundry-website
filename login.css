@@ -39,15 +39,44 @@
   width: 100%;
 }
 
+/* Password field with Show / Hide button */
+
+.password-wrap {
+  position: relative;
+}
+
+.password-wrap input {
+  padding-right: 140px;
+}
+
+.auth-card .toggle-pass {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  margin: 0;
+  padding: 6px 10px;
+  transform: translateY(-50%);
+  background: none;
+  color: #1e5aa8;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.auth-card .toggle-pass:hover {
+  background-color: #eef3f9;
+}
+
+.password-hint {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #4b5b6b;
+}
+
 .auth-message {
   margin: 16px 0 0;
   padding: 10px 12px;
   border-radius: 6px;
   font-size: 15px;
-}
-
-.auth-message[hidden] {
-  display: none;
 }
 
 .auth-message.error {
@@ -75,16 +104,16 @@
   color: #174a8c;
 }
 
-.link-button[hidden] {
-  display: none;
-}
-
 .auth-back {
   margin: 20px 0 0;
   text-align: center;
   font-size: 14px;
 }
 
-#signup-fields[hidden] {
+#signup-fields[hidden],
+#confirm-field[hidden],
+.password-hint[hidden],
+.auth-message[hidden],
+.link-button[hidden] {
   display: none;
 }
