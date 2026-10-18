@@ -193,6 +193,17 @@ form.addEventListener("submit", async function (event) {
 
       window.location.href = HOME_PAGE;
     } else {
+      // Stop early if this mobile number already belongs to an account
+      const { data: phoneTaken, error: phoneError } = await db.rpc("phone_exists", {
+        p_phone: phone,
+      });
+      if (phoneError) throw phoneError;
+
+      if (phoneTaken) {
+        showMessage("This mobile number is already registered. Log in, or use a different number.", true);
+        return;
+      }
+
       const { data, error } = await db.auth.signUp({
         email,
         password,
