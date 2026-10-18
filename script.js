@@ -1,5 +1,5 @@
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
-const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
+const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QEOw_p5LPkKgt";
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -8,6 +8,35 @@ const addButton = document.getElementById("add-item");
 const itemsContainer = document.getElementById("items");
 const dateInput = document.getElementById("delivery-date");
 const timeInput = document.getElementById("delivery-time");
+const loginNotice = document.getElementById("login-notice");
+const loginLink = document.getElementById("login-link");
+const logoutButton = document.getElementById("logout-btn");
+
+let currentUser = null;
+
+// Shows the form to logged-in customers and a login message to everyone else
+function updateLoginUI() {
+  const loggedIn = currentUser !== null;
+
+  form.hidden = !loggedIn;
+  loginNotice.hidden = loggedIn;
+  loginLink.hidden = loggedIn;
+  logoutButton.hidden = !loggedIn;
+}
+
+db.auth.getSession().then(function ({ data }) {
+  currentUser = data.session ? data.session.user : null;
+  updateLoginUI();
+});
+
+db.auth.onAuthStateChange(function (event, session) {
+  currentUser = session ? session.user : null;
+  updateLoginUI();
+});
+
+logoutButton.addEventListener("click", async function () {
+  await db.auth.signOut();
+});
 
 if (!timeInput) {
   console.error(
@@ -421,6 +450,14 @@ dateInput.addEventListener("input", function (event) {
 form.addEventListener("submit", async function (event) {
   event.preventDefault();
 
+  // 0. Only logged-in customers can place a request
+  const { data: sessionData } = await db.auth.getSession();
+  if (!sessionData.session) {
+    alert("Please log in to place a request.");
+    window.location.href = "login.html";
+    return;
+  }
+
   // 1. Check the delivery date and time
   if (!timeInput) {
     alert("The time field is missing from the page.");
@@ -510,6 +547,7 @@ form.addEventListener("submit", async function (event) {
 
     const { error: requestError } = await db.from("pickup_requests").insert({
       id: requestId,
+      user_id: sessionData.session.user.id,
       delivery_time: deliveryDate.toISOString(),
     });
     if (requestError) throw requestError;

@@ -124,3 +124,43 @@ button:hover {
 .photo-preview[hidden] {
   display: none;
 }
+body {
+  position: relative;
+}
+
+.login-btn {
+  position: absolute;
+  top: 22px;
+  right: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  text-decoration: none;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(220, 39, 67, 0.45);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(220, 39, 67, 0.55);
+}
+
+.login-btn:focus-visible {
+  outline: 3px solid white;
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .login-btn {
+    position: static;
+    display: flex;
+    width: fit-content;
+    margin: 14px auto 0;
+  }
+}
