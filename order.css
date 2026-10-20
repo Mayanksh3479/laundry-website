@@ -1,0 +1,105 @@
+/* ---------- My Orders page ---------- */
+
+.top-nav {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 0;
+}
+
+.top-nav #logout-btn {
+  margin: 0;
+}
+
+.order-card {
+  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 16px;
+  background-color: #f9fbfd;
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.order-header h3 {
+  margin: 0;
+}
+
+.order-meta {
+  margin: 6px 0;
+  color: #374151;
+}
+
+.order-card h4 {
+  margin: 14px 0 6px;
+}
+
+.order-items {
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* ---------- Status badge ---------- */
+
+.status-badge {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: bold;
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.status-pending   { background-color: #fef3c7; color: #92400e; }
+.status-picked_up { background-color: #dbeafe; color: #1e40af; }
+.status-washing   { background-color: #e0e7ff; color: #3730a3; }
+.status-ready     { background-color: #d1fae5; color: #065f46; }
+.status-delivered { background-color: #bbf7d0; color: #14532d; }
+
+/* ---------- Progress steps ---------- */
+
+.status-steps {
+  display: flex;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 14px 0;
+}
+
+.status-steps li {
+  flex: 1;
+  text-align: center;
+  padding: 8px 4px;
+  font-size: 13px;
+  border-radius: 6px;
+  background-color: #e5e7eb;
+  color: #6b7280;
+}
+
+.status-steps li.done {
+  background-color: #1e5aa8;
+  color: white;
+}
+
+.status-steps li.current {
+  background-color: #dc2743;
+  color: white;
+  font-weight: bold;
+}
+
+@media (max-width: 600px) {
+  .status-steps {
+    flex-direction: column;
+  }
+
+  .top-nav {
+    justify-content: center;
+  }
+}

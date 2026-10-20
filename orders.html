@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>My Orders - Super Care Dry Cleaners</title>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="my-orders.css">
+</head>
+
+<body>
+    <h1>Super Care Dry Cleaners</h1>
+
+    <nav class="top-nav">
+        <a href="index.html" class="button-link">Home</a>
+        <button type="button" id="logout-btn">Log out</button>
+    </nav>
+
+    <main>
+        <section>
+            <h2>My Orders</h2>
+
+            <p id="orders-message">Loading your orders...</p>
+
+            <div id="orders-list"></div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="my-orders.js"></script>
+</body>
+</html>
