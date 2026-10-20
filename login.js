@@ -1,10 +1,10 @@
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
-const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QEOw_p5LPkKgt";
-
+const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Where to go after a successful login
 const HOME_PAGE = "index.html";
+const RESET_PAGE_URL = "https://mayanksh3479.github.io/laundry-website/reset-password.html";
 
 const form = document.getElementById("auth-form");
 const tabLogin = document.getElementById("tab-login");
@@ -237,8 +237,9 @@ forgotButton.addEventListener("click", async function () {
     return;
   }
 
+  // The reset link in the email sends the customer to the reset page
   const { error } = await db.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href,
+    redirectTo: RESET_PAGE_URL,
   });
 
   if (error) {
