@@ -1,0 +1,362 @@
+/* ---------- Orders page: layout ---------- */
+
+/* This stylesheet only loads on the orders page, so these overrides do not affect other pages */
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+main section {
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+}
+
+main section > h2 {
+  margin: 8px 0 16px;
+  font-size: 28px;
+  color: #111827;
+}
+
+#orders-message {
+  background: white;
+  padding: 24px;
+  border-radius: 10px;
+  text-align: center;
+  color: #4b5563;
+}
+
+/* ---------- Top bar (Home / Log out) ---------- */
+
+.top-nav {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 14px 16px 0;
+}
+
+.top-nav .button-link {
+  padding: 8px 0;
+  background: none;
+  color: #1e5aa8;
+  font-weight: bold;
+  border-radius: 0;
+}
+
+.top-nav .button-link::before {
+  content: "\2190  ";
+}
+
+.top-nav .button-link:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Filter tabs ---------- */
+
+.order-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.filter-pill {
+  margin: 0;
+  padding: 9px 18px;
+  background: white;
+  color: #374151;
+  border: 1px solid #d5d9d9;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.filter-pill:hover {
+  background: #eef3fa;
+}
+
+.filter-pill.active {
+  background: #111827;
+  color: white;
+  border-color: #111827;
+}
+
+/* ---------- Order card ---------- */
+
+.order-card {
+  background: white;
+  border: 1px solid #d5d9d9;
+  border-radius: 10px;
+  margin-top: 18px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.order-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 40px;
+  padding: 14px 22px;
+  background: #f0f2f2;
+  border-bottom: 1px solid #d5d9d9;
+}
+
+.order-head-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.order-head-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #565959;
+}
+
+.order-head-value {
+  font-size: 14px;
+  color: #111827;
+}
+
+.order-head-id {
+  margin-left: auto;
+  text-align: right;
+}
+
+.order-head-id .order-head-value {
+  font-family: Consolas, "Courier New", monospace;
+  font-weight: bold;
+}
+
+.order-body {
+  padding: 22px;
+}
+
+/* ---------- Status headline ---------- */
+
+.order-headline {
+  margin: 0;
+  font-size: 22px;
+}
+
+.order-headline.is-active {
+  color: #1e5aa8;
+}
+
+.order-headline.is-delivered {
+  color: #067d62;
+}
+
+.order-subtext {
+  margin: 6px 0 0;
+  color: #565959;
+}
+
+/* ---------- Tracker ---------- */
+
+.tracker {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 28px 0 10px;
+}
+
+.tracker li {
+  flex: 1;
+  position: relative;
+  text-align: center;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* the circle */
+.tracker li::before {
+  content: "";
+  display: block;
+  position: relative;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto 8px;
+  border-radius: 50%;
+  background: #d5d9d9;
+  color: white;
+  font-size: 14px;
+  line-height: 24px;
+}
+
+/* the line to the next step */
+.tracker li::after {
+  content: "";
+  position: absolute;
+  top: 11px;
+  left: 50%;
+  width: 100%;
+  height: 3px;
+  background: #d5d9d9;
+}
+
+.tracker li:last-child::after {
+  display: none;
+}
+
+.tracker li.done {
+  color: #067d62;
+  font-weight: bold;
+}
+
+.tracker li.done::before {
+  content: "\2713";
+  background: #067d62;
+}
+
+.tracker li.done::after {
+  background: #067d62;
+}
+
+.tracker li.current {
+  color: #1e5aa8;
+  font-weight: bold;
+}
+
+.tracker li.current::before {
+  background: #1e5aa8;
+  box-shadow: 0 0 0 5px rgba(30, 90, 168, 0.2);
+}
+
+/* ---------- Items ---------- */
+
+.order-items {
+  margin-top: 26px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 8px;
+}
+
+.order-items-title {
+  margin: 12px 0 4px;
+  font-size: 15px;
+  color: #111827;
+}
+
+.order-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f2f2;
+}
+
+.order-item:last-child {
+  border-bottom: none;
+}
+
+.item-avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #eaf1fb;
+  color: #1e5aa8;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.item-info {
+  flex: 1;
+}
+
+.item-name {
+  font-weight: bold;
+  color: #111827;
+}
+
+.item-group {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.item-qty {
+  font-size: 14px;
+  color: #374151;
+  background: #f3f4f6;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+/* ---------- Empty state ---------- */
+
+.orders-empty {
+  background: white;
+  border: 1px solid #d5d9d9;
+  border-radius: 10px;
+  padding: 48px 20px;
+  margin-top: 18px;
+  text-align: center;
+}
+
+.orders-empty-icon {
+  font-size: 48px;
+}
+
+.orders-empty-text {
+  margin: 10px 0 20px;
+  color: #4b5563;
+  font-size: 17px;
+}
+
+/* ---------- Phones ---------- */
+
+@media (max-width: 640px) {
+  .order-head {
+    gap: 12px 24px;
+    padding: 14px 16px;
+  }
+
+  .order-head-id {
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .order-body {
+    padding: 18px 16px;
+  }
+
+  /* tracker turns into a vertical list */
+  .tracker {
+    flex-direction: column;
+  }
+
+  .tracker li {
+    min-height: 24px;
+    line-height: 24px;
+    padding: 0 0 22px 38px;
+    text-align: left;
+  }
+
+  .tracker li:last-child {
+    padding-bottom: 0;
+  }
+
+  .tracker li::before {
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin: 0;
+  }
+
+  .tracker li::after {
+    top: 24px;
+    left: 11px;
+    width: 3px;
+    height: 100%;
+  }
+}

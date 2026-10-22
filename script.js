@@ -11,6 +11,7 @@ const timeInput = document.getElementById("delivery-time");
 const loginNotice = document.getElementById("login-notice");
 const loginLink = document.getElementById("login-link");
 const logoutButton = document.getElementById("logout-btn");
+const ordersLink = document.getElementById("orders-link");
 
 let currentUser = null;
 
@@ -22,6 +23,7 @@ function updateLoginUI() {
   loginNotice.hidden = loggedIn;
   loginLink.hidden = loggedIn;
   logoutButton.hidden = !loggedIn;
+  if (ordersLink) ordersLink.hidden = !loggedIn;
 }
 
 db.auth.getSession().then(function ({ data }) {

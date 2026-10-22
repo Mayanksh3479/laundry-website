@@ -10,17 +10,31 @@
 </head>
 
 <body>
-    <h1>Super Care Dry Cleaners</h1>
-    <p><a href="orders.html" class="button-link">My Orders</a></p>
-    <a href="login.html" id="login-link" class="login-btn">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="8" r="4"></circle>
-            <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"></path>
-        </svg>
-        Log in
-    </a>
-    <button type="button" id="logout-btn" class="login-btn" hidden>Log out</button>
+    <header class="site-header">
+        <h1>Super Care Dry Cleaners</h1>
+
+        <nav class="site-nav" aria-label="Account">
+            <a href="login.html" id="login-link" class="nav-btn primary">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="8" r="4"></circle>
+                    <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"></path>
+                </svg>
+                Log in
+            </a>
+
+            <a href="orders.html" id="orders-link" class="nav-btn primary" hidden>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"></path>
+                    <path d="M3 8l9 5 9-5M12 13v8"></path>
+                </svg>
+                My Orders
+            </a>
+
+            <button type="button" id="logout-btn" class="nav-btn ghost" hidden>Log out</button>
+        </nav>
+    </header>
 
     <main>
         <p>Welcome to Super Care Dry Cleaners!</p>
@@ -217,7 +231,7 @@
         <section>
             <h2>Request a Pickup</h2>
 
-            <div id="login-notice" hidden>
+            <div id="login-notice" class="login-notice" hidden>
                 <p>Please log in to request a pickup.</p>
                 <a href="login.html" class="button-link">Log in or create account</a>
             </div>
@@ -237,9 +251,8 @@
 
                 <label for="delivery-time">Deliver back by (time)</label>
                 <select id="delivery-time" name="delivery_time" required>
-                <option value="">Select a time</option>
+                    <option value="">Select a time</option>
                 </select>
-                <p id="delivery-window" class="form-note"></p>
 
                 <h3>Your items</h3>
 
