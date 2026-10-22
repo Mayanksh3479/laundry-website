@@ -37,6 +37,10 @@ const filterSelect = document.getElementById("order-filter");
 const accountMenu = document.getElementById("account-menu");
 const accountEmail = document.getElementById("account-email");
 const logoutButton = document.getElementById("logout-btn");
+const dueCard = document.getElementById("due-card");
+const dueAmount = document.getElementById("due-amount");
+const dueSub = document.getElementById("due-sub");
+const dueBreakdown = document.getElementById("due-breakdown");
 
 let currentUserId = null;
 let allOrders = [];
@@ -355,8 +359,13 @@ function buildOrderCard(order) {
   dateCell.append(icon("calendar", "cell-icon"), dateText);
 
   const amountCell = el("div", "bottom-cell cell-amount");
-  if (order.total_amount !== null && order.total_amount !== undefined) {
-    amountCell.appendChild(el("div", "amount", "₹" + Number(order.total_amount).toLocaleString("en-IN")));
+  if (hasPrice(order)) {
+    const amountBox = el("div", "amount-box");
+    amountBox.append(
+      el("div", "amount", formatMoney(order.total_amount)),
+      el("span", "pay-pill " + (order.paid ? "pay-paid" : "pay-due"), order.paid ? "Paid" : "Due")
+    );
+    amountCell.appendChild(amountBox);
   } else {
     amountCell.appendChild(el("div", "amount-note", "Price shared after cleaning"));
   }
@@ -408,6 +417,55 @@ function updateSummary() {
   countCompleted.textContent = String(completed);
 }
 
+function formatMoney(value) {
+  return "₹" + Number(value).toLocaleString("en-IN");
+}
+
+function hasPrice(order) {
+  return order.total_amount !== null && order.total_amount !== undefined;
+}
+
+// Money the customer still has to pay: priced orders that are not marked as paid
+function updateDue() {
+  const unpaid = allOrders.filter(function (order) {
+    return !order.paid && hasPrice(order);
+  });
+
+  const awaitingPrice = allOrders.filter(function (order) {
+    return !order.paid && !hasPrice(order);
+  }).length;
+
+  const total = unpaid.reduce(function (sum, order) {
+    return sum + Number(order.total_amount);
+  }, 0);
+
+  dueCard.hidden = allOrders.length === 0;
+  dueCard.classList.toggle("is-clear", unpaid.length === 0 && awaitingPrice === 0);
+  dueAmount.textContent = formatMoney(total);
+
+  const parts = [];
+
+  if (unpaid.length > 0) {
+    parts.push(unpaid.length + (unpaid.length === 1 ? " unpaid order" : " unpaid orders"));
+  }
+
+  if (awaitingPrice > 0) {
+    parts.push(
+      awaitingPrice + (awaitingPrice === 1 ? " order" : " orders") + " will be priced after cleaning"
+    );
+  }
+
+  dueSub.textContent = parts.length > 0 ? parts.join(" • ") : "You are all paid up. Thank you!";
+
+  dueBreakdown.innerHTML = "";
+
+  unpaid.forEach(function (order) {
+    const row = el("div", "due-row");
+    row.append(el("span", "", "Order #" + orderLabel(order)), el("strong", "", formatMoney(order.total_amount)));
+    dueBreakdown.appendChild(row);
+  });
+}
+
 function buildEmptyState(text, showButton) {
   const box = el("div", "orders-empty");
   box.appendChild(el("div", "orders-empty-icon", "🧺"));
@@ -424,6 +482,7 @@ function buildEmptyState(text, showButton) {
 
 function render() {
   updateSummary();
+  updateDue();
   ordersMessage.hidden = true;
   ordersList.innerHTML = "";
 
@@ -486,7 +545,7 @@ async function loadData() {
   const { data, error } = await db
     .from("pickup_requests")
     .select(
-      "id, order_no, status, created_at, delivery_time, total_amount, request_items(category, quantity, photo_paths), order_status_history(status, changed_at)"
+      "id, order_no, status, created_at, delivery_time, total_amount, paid, request_items(category, quantity, photo_paths), order_status_history(status, changed_at)"
     )
     .eq("user_id", currentUserId)
     .order("created_at", { ascending: false });

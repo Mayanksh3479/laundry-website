@@ -1461,3 +1461,130 @@ a {
 .logout-confirm:hover {
   background-color: #912018;
 }
+
+/* ---------- Total amount due ---------- */
+
+.due-card {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  margin-top: 18px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(15, 27, 61, 0.07);
+}
+
+.due-card[hidden] {
+  display: none;
+}
+
+.due-main {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 28px 30px;
+  background: linear-gradient(135deg, #fff7ea, #fffdf8);
+}
+
+.due-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 68px;
+  height: 68px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #fde7b8, #fbd38a);
+  color: #92400e;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.due-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  color: var(--muted);
+}
+
+.due-amount {
+  margin: 4px 0;
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.due-sub {
+  margin: 0;
+  color: var(--muted);
+}
+
+.due-breakdown {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px 28px;
+  border-left: 1px solid var(--line);
+}
+
+.due-breakdown:empty {
+  display: none;
+}
+
+.due-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 15px;
+}
+
+.due-card.is-clear .due-main {
+  background: linear-gradient(135deg, #ecfdf3, #f8fffb);
+}
+
+.due-card.is-clear .due-icon {
+  background: linear-gradient(135deg, #c9f3d8, #a7e8c0);
+  color: #15803d;
+}
+
+.amount-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.pay-pill {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pay-due {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.pay-paid {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+@media (max-width: 760px) {
+  .due-card {
+    grid-template-columns: 1fr;
+  }
+
+  .due-main {
+    padding: 22px;
+  }
+
+  .due-breakdown {
+    padding: 16px 22px;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}

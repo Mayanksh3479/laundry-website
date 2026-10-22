@@ -291,6 +291,33 @@ async function changeAmount(order, input) {
   showToast("Amount saved for order #" + shortId(order));
 }
 
+async function changePaid(order, select) {
+  const previous = order.paid ? "paid" : "unpaid";
+  const next = select.value;
+
+  if (next === previous) return;
+
+  select.disabled = true;
+
+  const { data, error } = await db
+    .from("pickup_requests")
+    .update({ paid: next === "paid" })
+    .eq("id", order.id)
+    .select("id");
+
+  select.disabled = false;
+
+  if (error || !data || data.length === 0) {
+    console.log("Payment update failed:", error ? error.message : "no row changed");
+    select.value = previous;
+    showToast("Could not update the payment. Please try again.", true);
+    return;
+  }
+
+  order.paid = next === "paid";
+  showToast("Order #" + shortId(order) + " marked as " + next);
+}
+
 function buildOrderCard(order) {
   const items = order.request_items || [];
   const totalPieces = items.reduce(function (sum, item) {
@@ -344,7 +371,25 @@ function buildOrderCard(order) {
     changeAmount(order, amountInput);
   });
 
-  statusRow.append(amountLabel, amountInput);
+  const paidLabel = el("span", "admin-status-label amount-label", "Payment");
+  const paidSelect = el("select", "amount-input");
+
+  [
+    { value: "unpaid", label: "Unpaid" },
+    { value: "paid", label: "Paid" },
+  ].forEach(function (choice) {
+    const option = el("option", "", choice.label);
+    option.value = choice.value;
+    paidSelect.appendChild(option);
+  });
+
+  paidSelect.value = order.paid ? "paid" : "unpaid";
+
+  paidSelect.addEventListener("change", function () {
+    changePaid(order, paidSelect);
+  });
+
+  statusRow.append(amountLabel, amountInput, paidLabel, paidSelect);
   body.appendChild(statusRow);
 
   const itemsBox = el("div", "order-items");
@@ -447,7 +492,7 @@ async function signPhotos(list) {
 async function fetchOrders() {
   const { data, error } = await db
     .from("pickup_requests")
-    .select("id, order_no, status, created_at, delivery_time, total_amount, request_items(category, quantity, photo_paths)")
+    .select("id, order_no, status, created_at, delivery_time, total_amount, paid, request_items(category, quantity, photo_paths)")
     .order("created_at", { ascending: false });
 
   if (error) throw error;
