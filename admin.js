@@ -104,6 +104,10 @@ function formatDateTime(isoText) {
 }
 
 function shortId(order) {
+  if (order.order_no !== null && order.order_no !== undefined) {
+    return "SC" + (1000 + Number(order.order_no));
+  }
+
   return order.id.slice(0, 8).toUpperCase();
 }
 
@@ -217,6 +221,39 @@ async function changeStatus(order, select) {
   render();
 }
 
+async function changeAmount(order, input) {
+  const raw = input.value.trim();
+  const value = raw === "" ? null : Number(raw);
+  const previous =
+    order.total_amount === null || order.total_amount === undefined ? "" : order.total_amount;
+
+  if (value !== null && (!Number.isFinite(value) || value < 0)) {
+    input.value = previous;
+    showToast("Enter a valid amount.", true);
+    return;
+  }
+
+  input.disabled = true;
+
+  const { data, error } = await db
+    .from("pickup_requests")
+    .update({ total_amount: value })
+    .eq("id", order.id)
+    .select("id");
+
+  input.disabled = false;
+
+  if (error || !data || data.length === 0) {
+    console.log("Amount update failed:", error ? error.message : "no row changed");
+    input.value = previous;
+    showToast("Could not save the amount. Please try again.", true);
+    return;
+  }
+
+  order.total_amount = value;
+  showToast("Amount saved for order #" + shortId(order));
+}
+
 function buildOrderCard(order) {
   const items = order.request_items || [];
   const totalPieces = items.reduce(function (sum, item) {
@@ -256,6 +293,21 @@ function buildOrderCard(order) {
   });
 
   statusRow.appendChild(select);
+
+  const amountLabel = el("span", "admin-status-label amount-label", "Amount (₹)");
+  const amountInput = el("input", "amount-input");
+  amountInput.type = "number";
+  amountInput.min = "0";
+  amountInput.step = "1";
+  amountInput.placeholder = "e.g. 280";
+  amountInput.value =
+    order.total_amount === null || order.total_amount === undefined ? "" : order.total_amount;
+
+  amountInput.addEventListener("change", function () {
+    changeAmount(order, amountInput);
+  });
+
+  statusRow.append(amountLabel, amountInput);
   body.appendChild(statusRow);
 
   const itemsBox = el("div", "order-items");
@@ -358,7 +410,7 @@ async function signPhotos(list) {
 async function fetchOrders() {
   const { data, error } = await db
     .from("pickup_requests")
-    .select("id, status, created_at, delivery_time, request_items(category, quantity, photo_paths)")
+    .select("id, order_no, status, created_at, delivery_time, total_amount, request_items(category, quantity, photo_paths)")
     .order("created_at", { ascending: false });
 
   if (error) throw error;
