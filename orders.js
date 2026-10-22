@@ -9,6 +9,13 @@ const PHOTO_BUCKET = "request-photos";
 const PHOTO_LINK_SECONDS = 3600;
 const REFRESH_DELAY = 900;
 
+// Your UPI ID for online payments, for example "supercare@okhdfcbank".
+// Customers will pay to this ID. While it is not filled in, only Cash on delivery is offered.
+const UPI_ID = "PASTE_YOUR_UPI_ID_HERE";
+const UPI_NAME = "Super Care Dry Cleaners";
+const UPI_ENABLED = UPI_ID.indexOf("@") > 0;
+const PAYMENT_LABELS = { cod: "Cash on delivery", upi: "UPI" };
+
 const STEPS = [
   { value: "pending", label: "Pickup Scheduled", badge: "Pickup Scheduled", activeText: "" },
   { value: "picked_up", label: "Picked Up", badge: "Picked Up", activeText: "Collected" },
@@ -363,7 +370,7 @@ function buildOrderCard(order) {
     const amountBox = el("div", "amount-box");
     amountBox.append(
       el("div", "amount", formatMoney(order.total_amount)),
-      el("span", "pay-pill " + (order.paid ? "pay-paid" : "pay-due"), order.paid ? "Paid" : "Due")
+      paymentPill(order)
     );
     amountCell.appendChild(amountBox);
   } else {
@@ -391,7 +398,11 @@ function buildOrderCard(order) {
     else openOrders.add(order.id);
   });
 
-  card.append(top, buildSteps(order), bottom, details);
+  const payPanel = buildPaymentPanel(order);
+
+  card.append(top, buildSteps(order), bottom);
+  if (payPanel) card.appendChild(payPanel);
+  card.appendChild(details);
   return card;
 }
 
@@ -461,9 +472,166 @@ function updateDue() {
 
   unpaid.forEach(function (order) {
     const row = el("div", "due-row");
-    row.append(el("span", "", "Order #" + orderLabel(order)), el("strong", "", formatMoney(order.total_amount)));
+    const method = PAYMENT_LABELS[order.payment_method];
+    row.append(
+      el("span", "", "Order #" + orderLabel(order) + (method ? " · " + method : "")),
+      el("strong", "", formatMoney(order.total_amount))
+    );
     dueBreakdown.appendChild(row);
   });
+}
+
+// Builds the UPI payment link that opens Google Pay, Paytm, PhonePe or any UPI app
+function upiLink(order) {
+  return (
+    "upi://pay?pa=" + UPI_ID +
+    "&pn=" + encodeURIComponent(UPI_NAME) +
+    "&am=" + Number(order.total_amount).toFixed(2) +
+    "&cu=INR&tn=" + encodeURIComponent("Order " + orderLabel(order))
+  );
+}
+
+function paymentPill(order) {
+  if (order.paid) {
+    const how = PAYMENT_LABELS[order.payment_method];
+    return el("span", "pay-pill pay-paid", how ? "Paid · " + how : "Paid");
+  }
+
+  if (order.payment_method === "upi" && order.upi_ref) {
+    return el("span", "pay-pill pay-pending", "Awaiting confirmation");
+  }
+
+  return el("span", "pay-pill pay-due", "Due");
+}
+
+// Saves the customer's choice through a safe database function (they cannot edit orders directly)
+async function savePayment(order, method, ref) {
+  const { error } = await db.rpc("set_payment_method", {
+    p_order_id: order.id,
+    p_method: method,
+    p_ref: ref || null,
+  });
+
+  if (error) {
+    console.log("Saving payment failed:", error.message);
+    alert("Sorry, we could not save your payment choice. Please try again.");
+    return false;
+  }
+
+  order.payment_method = method;
+  order.upi_ref = method === "upi" && ref ? ref : null;
+  render();
+  return true;
+}
+
+function buildPayOption(order, method, symbol, label) {
+  const button = el("button", "pay-option");
+  button.type = "button";
+  button.append(el("span", "pay-option-icon", symbol), el("span", "", label));
+
+  button.addEventListener("click", function () {
+    savePayment(order, method, null);
+  });
+
+  return button;
+}
+
+function buildChangeLink(order) {
+  const link = el("button", "pay-link", "Choose another method");
+  link.type = "button";
+
+  link.addEventListener("click", function () {
+    savePayment(order, null, null);
+  });
+
+  return link;
+}
+
+function buildPaymentPanel(order) {
+  if (order.paid || !hasPrice(order)) return null;
+
+  const panel = el("div", "pay-panel");
+  const amount = formatMoney(order.total_amount);
+
+  if (!order.payment_method) {
+    panel.appendChild(el("p", "pay-title", "How would you like to pay " + amount + "?"));
+
+    const options = el("div", "pay-options");
+    options.appendChild(buildPayOption(order, "cod", "💵", "Cash on delivery"));
+
+    if (UPI_ENABLED) {
+      options.appendChild(buildPayOption(order, "upi", "📲", "Pay online (UPI)"));
+    }
+
+    panel.appendChild(options);
+    return panel;
+  }
+
+  if (order.payment_method === "cod") {
+    panel.append(
+      el("p", "pay-title", "Cash on delivery"),
+      el("p", "pay-text", "Please keep " + amount + " ready. You pay when your clothes are delivered."),
+      buildChangeLink(order)
+    );
+    return panel;
+  }
+
+  if (order.upi_ref) {
+    panel.append(
+      el("p", "pay-title", "Payment submitted"),
+      el("p", "pay-text", "Thank you! We will confirm your payment of " + amount + " shortly. Reference: " + order.upi_ref)
+    );
+    return panel;
+  }
+
+  panel.append(
+    el("p", "pay-title", "Pay " + amount + " online with UPI"),
+    el("p", "pay-text", "Pay to " + UPI_ID + " using Google Pay, Paytm, PhonePe or any UPI app. On a computer, copy the UPI ID and pay from your phone.")
+  );
+
+  const actions = el("div", "pay-actions");
+
+  const openLink = el("a", "pay-upi-btn", "Open UPI app");
+  openLink.href = upiLink(order);
+
+  const copyButton = el("button", "pay-secondary", "Copy UPI ID");
+  copyButton.type = "button";
+
+  copyButton.addEventListener("click", function () {
+    if (!navigator.clipboard) return;
+
+    navigator.clipboard.writeText(UPI_ID).then(function () {
+      copyButton.textContent = "Copied";
+    });
+  });
+
+  actions.append(openLink, copyButton);
+
+  const refRow = el("div", "pay-ref-row");
+  const refInput = el("input");
+  refInput.type = "text";
+  refInput.placeholder = "Transaction ID (UTR) after paying";
+  refInput.maxLength = 40;
+  refInput.autocomplete = "off";
+
+  const doneButton = el("button", "pay-secondary", "I have paid");
+  doneButton.type = "button";
+
+  doneButton.addEventListener("click", function () {
+    const ref = refInput.value.trim();
+
+    if (!/^[A-Za-z0-9]{6,40}$/.test(ref)) {
+      alert("Please enter the transaction ID (UTR) from your payment app.");
+      return;
+    }
+
+    savePayment(order, "upi", ref);
+  });
+
+  refRow.append(refInput, doneButton);
+
+  panel.append(actions, refRow, buildChangeLink(order));
+  return panel;
 }
 
 function buildEmptyState(text, showButton) {
@@ -545,7 +713,7 @@ async function loadData() {
   const { data, error } = await db
     .from("pickup_requests")
     .select(
-      "id, order_no, status, created_at, delivery_time, total_amount, paid, request_items(category, quantity, photo_paths), order_status_history(status, changed_at)"
+      "id, order_no, status, created_at, delivery_time, total_amount, paid, payment_method, upi_ref, request_items(category, quantity, photo_paths), order_status_history(status, changed_at)"
     )
     .eq("user_id", currentUserId)
     .order("created_at", { ascending: false });

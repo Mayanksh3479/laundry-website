@@ -1588,3 +1588,132 @@ a {
     border-top: 1px solid var(--line);
   }
 }
+
+/* ---------- Payment method ---------- */
+
+.pay-panel {
+  margin: 0 28px;
+  padding: 20px 0 22px;
+  border-top: 1px solid var(--line);
+}
+
+.pay-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pay-text {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.pay-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.pay-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: white;
+  color: var(--ink);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.pay-option:hover {
+  border-color: var(--blue);
+  background: #f5f8ff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.15);
+}
+
+.pay-option-icon {
+  font-size: 20px;
+}
+
+.pay-actions,
+.pay-ref-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.pay-upi-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  border-radius: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.32);
+}
+
+.pay-upi-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.45);
+}
+
+.pay-secondary {
+  padding: 11px 16px;
+  background: #eaf1ff;
+  color: var(--blue-dark);
+  border: 0;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.pay-secondary:hover {
+  background: #dbe8ff;
+}
+
+.pay-ref-row input {
+  flex: 1;
+  min-width: 200px;
+  max-width: 320px;
+  padding: 11px 14px;
+  background: white;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.pay-link {
+  margin-top: 10px;
+  padding: 0;
+  background: none;
+  color: var(--blue-dark);
+  border: 0;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.pay-pending {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+@media (max-width: 760px) {
+  .pay-panel {
+    margin: 0 18px;
+  }
+
+  .pay-option {
+    flex: 1 1 100%;
+  }
+}

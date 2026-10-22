@@ -390,6 +390,15 @@ function buildOrderCard(order) {
   });
 
   statusRow.append(amountLabel, amountInput, paidLabel, paidSelect);
+
+  const methodNames = { cod: "Cash on delivery", upi: "UPI" };
+  let methodText = "Method: " + (methodNames[order.payment_method] || "not chosen yet");
+
+  if (order.payment_method === "upi" && order.upi_ref) {
+    methodText += " · Ref: " + order.upi_ref + (order.paid ? "" : " (check your UPI app, then mark Paid)");
+  }
+
+  statusRow.appendChild(el("span", "admin-status-label amount-label", methodText));
   body.appendChild(statusRow);
 
   const itemsBox = el("div", "order-items");
@@ -492,7 +501,7 @@ async function signPhotos(list) {
 async function fetchOrders() {
   const { data, error } = await db
     .from("pickup_requests")
-    .select("id, order_no, status, created_at, delivery_time, total_amount, paid, request_items(category, quantity, photo_paths)")
+    .select("id, order_no, status, created_at, delivery_time, total_amount, paid, payment_method, upi_ref, request_items(category, quantity, photo_paths)")
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -528,9 +537,17 @@ function watchOrders() {
           return order.id === payload.new.id;
         });
 
-        if (known && known.status !== payload.new.status) {
+        if (known) {
+          const changed =
+            known.status !== payload.new.status ||
+            known.payment_method !== payload.new.payment_method ||
+            known.upi_ref !== payload.new.upi_ref;
+
           known.status = payload.new.status;
-          render();
+          known.payment_method = payload.new.payment_method;
+          known.upi_ref = payload.new.upi_ref;
+
+          if (changed) render();
         }
 
         return;
