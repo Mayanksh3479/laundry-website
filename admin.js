@@ -1,12 +1,22 @@
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
 
+// =====================================================================
+// admin.js: the staff dashboard (orders, status, payment, customer info)
+// =====================================================================
+
+
+// I create one Supabase client and use it for everything on this page
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ---------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------
 const LOGIN_PAGE = "login.html";
 const PHOTO_BUCKET = "request-photos";
-const PHOTO_LINK_SECONDS = 3600;
+const PHOTO_LINK_SECONDS = 3600; // I make photo links valid for one hour
 
+// The order statuses I let staff choose from, in the order they happen
 const STATUSES = [
   { value: "pending", label: "Pending" },
   { value: "picked_up", label: "Picked up" },
@@ -15,6 +25,9 @@ const STATUSES = [
   { value: "delivered", label: "Delivered" },
 ];
 
+// ---------------------------------------------------------------------
+// Page elements
+// ---------------------------------------------------------------------
 const adminMessage = document.getElementById("admin-message");
 const adminTools = document.getElementById("admin-tools");
 const adminList = document.getElementById("admin-list");
@@ -23,13 +36,19 @@ const searchInput = document.getElementById("search");
 const logoutButton = document.getElementById("logout-btn");
 const toast = document.getElementById("toast");
 
-let orders = [];
-let photoUrls = {};
-let activeFilter = "all";
-let searchText = "";
+// ---------------------------------------------------------------------
+// State I keep in memory
+// ---------------------------------------------------------------------
+let orders = []; // every order I have loaded
+let photoUrls = {}; // storage path -> temporary signed link
+let activeFilter = "all"; // which status card is selected
+let searchText = ""; // what staff typed in the search box
 let toastTimer = null;
 let reloadTimer = null;
 
+// ---------------------------------------------------------------------
+// Photo lightbox (opens a photo full size)
+// ---------------------------------------------------------------------
 const lightbox = document.createElement("dialog");
 lightbox.className = "photo-lightbox";
 
@@ -49,6 +68,7 @@ lightboxClose.addEventListener("click", function () {
   lightbox.close();
 });
 
+// I also close it when staff click the dark area outside the photo
 lightbox.addEventListener("click", function (event) {
   if (event.target === lightbox) lightbox.close();
 });
@@ -58,7 +78,10 @@ function openPhoto(url) {
   lightbox.showModal();
 }
 
-// Log out confirmation pop-up (asks first, in case of an accidental tap)
+// ---------------------------------------------------------------------
+// Log out confirmation pop-up
+// I ask first, in case of an accidental tap
+// ---------------------------------------------------------------------
 const logoutDialog = document.createElement("dialog");
 logoutDialog.className = "logout-dialog";
 
@@ -95,6 +118,12 @@ logoutDialog.addEventListener("click", function (event) {
   if (event.target === logoutDialog) logoutDialog.close();
 });
 
+// ---------------------------------------------------------------------
+// Small helpers
+// ---------------------------------------------------------------------
+
+// I create an element with an optional class name and text.
+// I use textContent (never innerHTML) so customer text can't inject HTML.
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -102,6 +131,7 @@ function el(tag, className, text) {
   return node;
 }
 
+// I show a small message at the bottom of the screen for a few seconds
 function showToast(text, isError) {
   toast.textContent = text;
   toast.className = "toast" + (isError ? " error" : "");
@@ -113,11 +143,13 @@ function showToast(text, isError) {
   }, 3200);
 }
 
+// I show a message in the big box at the top of the page
 function showMessage(text) {
   adminMessage.textContent = text;
   adminMessage.hidden = false;
 }
 
+// I format a date like "22 Oct 2026"
 function formatDate(isoText) {
   if (!isoText) return "-";
 
@@ -128,6 +160,7 @@ function formatDate(isoText) {
   });
 }
 
+// I format a date and time like "22 Oct 2026, 6:30 pm"
 function formatDateTime(isoText) {
   if (!isoText) return "-";
 
@@ -140,6 +173,7 @@ function formatDateTime(isoText) {
   });
 }
 
+// I build the short order number staff see, like "SC1007"
 function shortId(order) {
   if (order.order_no !== null && order.order_no !== undefined) {
     return "SC" + (1000 + Number(order.order_no));
@@ -148,6 +182,7 @@ function shortId(order) {
   return order.id.slice(0, 8).toUpperCase();
 }
 
+// I turn a status value like "picked_up" into its label "Picked up"
 function statusLabel(value) {
   const found = STATUSES.find(function (status) {
     return status.value === value;
@@ -156,6 +191,7 @@ function statusLabel(value) {
   return found ? found.label : value;
 }
 
+// I split "Gents - Shirt" into { group: "Gents", name: "Shirt" }
 function splitCategory(category) {
   const parts = String(category).split(" - ");
 
@@ -166,12 +202,18 @@ function splitCategory(category) {
   return { group: "", name: category };
 }
 
+// I build one label + value block for the grey header of an order card
 function headerBlock(label, value) {
   const block = el("div", "order-head-block");
   block.append(el("span", "order-head-label", label), el("span", "order-head-value", value));
   return block;
 }
 
+// ---------------------------------------------------------------------
+// Order items and photos
+// ---------------------------------------------------------------------
+
+// I build a clickable photo thumbnail that opens in the lightbox
 function buildPhotoButton(url, className, altText) {
   const button = el("button", className);
   button.type = "button";
@@ -191,8 +233,11 @@ function buildPhotoButton(url, className, altText) {
   return button;
 }
 
+// I build one item row: photo, name, group, quantity and extra photos
 function buildItem(item) {
   const parts = splitCategory(item.category);
+
+  // I turn the saved photo paths into signed links I can display
   const urls = (item.photo_paths || [])
     .map(function (path) {
       return photoUrls[path];
@@ -201,6 +246,7 @@ function buildItem(item) {
 
   const row = el("div", "order-item");
 
+  // I show the first photo big, or a letter if there are no photos
   if (urls.length > 0) {
     row.appendChild(buildPhotoButton(urls[0], "item-photo", parts.name));
   } else {
@@ -216,6 +262,7 @@ function buildItem(item) {
 
   details.appendChild(el("div", "item-qty", "Qty: " + item.quantity));
 
+  // I show any remaining photos as small thumbnails
   if (urls.length > 1) {
     const extra = el("div", "item-extra");
 
@@ -230,6 +277,11 @@ function buildItem(item) {
   return row;
 }
 
+// ---------------------------------------------------------------------
+// Saving changes (status, amount, payment)
+// ---------------------------------------------------------------------
+
+// I save a new status. If it fails, I put the old one back.
 async function changeStatus(order, select) {
   const previous = order.status;
   const next = select.value;
@@ -246,6 +298,7 @@ async function changeStatus(order, select) {
 
   select.disabled = false;
 
+  // If no row came back, nothing changed (for example, a permission problem)
   if (error || !data || data.length === 0) {
     console.log("Status update failed:", error ? error.message : "no row changed");
     select.value = previous;
@@ -258,12 +311,14 @@ async function changeStatus(order, select) {
   render();
 }
 
+// I save the order amount. An empty box saves as "no amount yet".
 async function changeAmount(order, input) {
   const raw = input.value.trim();
   const value = raw === "" ? null : Number(raw);
   const previous =
     order.total_amount === null || order.total_amount === undefined ? "" : order.total_amount;
 
+  // I reject negative numbers and anything that isn't a number
   if (value !== null && (!Number.isFinite(value) || value < 0)) {
     input.value = previous;
     showToast("Enter a valid amount.", true);
@@ -291,6 +346,7 @@ async function changeAmount(order, input) {
   showToast("Amount saved for order #" + shortId(order));
 }
 
+// I save whether the order is paid or unpaid
 async function changePaid(order, select) {
   const previous = order.paid ? "paid" : "unpaid";
   const next = select.value;
@@ -318,14 +374,95 @@ async function changePaid(order, select) {
   showToast("Order #" + shortId(order) + " marked as " + next);
 }
 
+// ---------------------------------------------------------------------
+// Customer details and location (new)
+// ---------------------------------------------------------------------
+
+// I build one "Label: value" line. The value can be plain text or an element.
+function detailLine(label, child) {
+  const row = el("div", "customer-line");
+  row.appendChild(el("span", "customer-label", label));
+
+  if (typeof child === "string") {
+    row.appendChild(el("span", "customer-value", child));
+  } else {
+    row.appendChild(child);
+  }
+
+  return row;
+}
+
+// I build a link. For links to other sites I open a new tab safely.
+function linkNode(text, href, newTab) {
+  const link = el("a", "customer-link", text);
+  link.href = href;
+
+  if (newTab) {
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+  }
+
+  return link;
+}
+
+// I build the "Customer" box: name, email, phone and location
+function buildCustomerBox(order) {
+  const box = el("div", "customer-box");
+  box.appendChild(el("h4", "order-items-title", "Customer"));
+
+  // Name
+  box.appendChild(detailLine("Name", order.customer_name || "-"));
+
+  // Email: I make it clickable so staff can tap to write an email
+  box.appendChild(
+    detailLine(
+      "Email",
+      order.customer_email ? linkNode(order.customer_email, "mailto:" + order.customer_email) : "-"
+    )
+  );
+
+  // Phone: I make it clickable so staff can tap to call.
+  // I saved the number as 10 digits, so I add +91 for the dialer.
+  box.appendChild(
+    detailLine(
+      "Phone",
+      order.customer_phone ? linkNode(order.customer_phone, "tel:+91" + order.customer_phone) : "-"
+    )
+  );
+
+  // Location: if the customer shared it, I show a Google Maps link
+  if (order.latitude !== null && order.latitude !== undefined) {
+    const mapUrl = "https://www.google.com/maps?q=" + order.latitude + "," + order.longitude;
+
+    // I show how accurate the GPS was, so staff know how far to trust the pin
+    const accuracy = order.location_accuracy_m
+      ? " (±" + Math.round(order.location_accuracy_m) + " m)"
+      : "";
+
+    const wrap = el("span", "customer-value");
+    wrap.append(linkNode("Open in Google Maps", mapUrl, true), document.createTextNode(accuracy));
+    box.appendChild(detailLine("Location", wrap));
+  } else {
+    box.appendChild(detailLine("Location", "Not shared"));
+  }
+
+  return box;
+}
+
+// ---------------------------------------------------------------------
+// Building an order card
+// ---------------------------------------------------------------------
 function buildOrderCard(order) {
   const items = order.request_items || [];
+
+  // I add up the quantity of every item to get the total pieces
   const totalPieces = items.reduce(function (sum, item) {
     return sum + Number(item.quantity || 0);
   }, 0);
 
   const card = el("article", "order-card");
 
+  // ----- Grey header: dates, pieces and order number -----
   const head = el("div", "order-head");
   head.append(
     headerBlock("Order placed", formatDate(order.created_at)),
@@ -339,6 +476,7 @@ function buildOrderCard(order) {
 
   const body = el("div", "order-body");
 
+  // ----- Controls row: status, amount, payment -----
   const statusRow = el("div", "admin-status-row");
   statusRow.appendChild(el("span", "admin-status-label", "Order status"));
 
@@ -358,6 +496,7 @@ function buildOrderCard(order) {
 
   statusRow.appendChild(select);
 
+  // Amount box
   const amountLabel = el("span", "admin-status-label amount-label", "Amount (₹)");
   const amountInput = el("input", "amount-input");
   amountInput.type = "number";
@@ -371,6 +510,7 @@ function buildOrderCard(order) {
     changeAmount(order, amountInput);
   });
 
+  // Paid / unpaid dropdown
   const paidLabel = el("span", "admin-status-label amount-label", "Payment");
   const paidSelect = el("select", "amount-input");
 
@@ -391,6 +531,7 @@ function buildOrderCard(order) {
 
   statusRow.append(amountLabel, amountInput, paidLabel, paidSelect);
 
+  // Payment method text (and the UPI reference when there is one)
   const methodNames = { cod: "Cash on delivery", upi: "UPI" };
   let methodText = "Method: " + (methodNames[order.payment_method] || "not chosen yet");
 
@@ -401,6 +542,10 @@ function buildOrderCard(order) {
   statusRow.appendChild(el("span", "admin-status-label amount-label", methodText));
   body.appendChild(statusRow);
 
+  // ----- Customer box: name, email, phone, location (new) -----
+  body.appendChild(buildCustomerBox(order));
+
+  // ----- Items in this order -----
   const itemsBox = el("div", "order-items");
   itemsBox.appendChild(el("h4", "order-items-title", "Items in this order"));
 
@@ -413,6 +558,11 @@ function buildOrderCard(order) {
   return card;
 }
 
+// ---------------------------------------------------------------------
+// Summary cards and the order list
+// ---------------------------------------------------------------------
+
+// I count how many orders match a status (or all of them)
 function countFor(filter) {
   if (filter === "all") return orders.length;
 
@@ -421,6 +571,7 @@ function countFor(filter) {
   }).length;
 }
 
+// I build the row of status cards at the top (All, Pending, Picked up, ...)
 function buildSummary() {
   summary.innerHTML = "";
 
@@ -441,6 +592,7 @@ function buildSummary() {
   });
 }
 
+// I redraw the whole page from the orders I have in memory
 function render() {
   adminTools.hidden = false;
   buildSummary();
@@ -448,6 +600,7 @@ function render() {
 
   const query = searchText.trim().toUpperCase();
 
+  // I keep only the orders that match the selected status and the search box
   const visible = orders.filter(function (order) {
     const statusMatch = activeFilter === "all" || order.status === activeFilter;
     const searchMatch = query === "" || shortId(order).includes(query);
@@ -467,6 +620,12 @@ function render() {
   });
 }
 
+// ---------------------------------------------------------------------
+// Loading data from Supabase
+// ---------------------------------------------------------------------
+
+// I ask Supabase for temporary signed links for every photo.
+// I return an object like { "<storage path>": "<link>" }.
 async function signPhotos(list) {
   const paths = [];
 
@@ -498,10 +657,17 @@ async function signPhotos(list) {
   return map;
 }
 
+// I load every order, newest first, with its items.
+// I also ask for the customer details and location (new).
 async function fetchOrders() {
   const { data, error } = await db
     .from("pickup_requests")
-    .select("id, order_no, status, created_at, delivery_time, total_amount, paid, payment_method, upi_ref, request_items(category, quantity, photo_paths)")
+    .select(
+      "id, order_no, status, created_at, delivery_time, total_amount, paid, payment_method, upi_ref, " +
+        "customer_name, customer_email, customer_phone, " +
+        "latitude, longitude, location_accuracy_m, location_captured_at, " +
+        "request_items(category, quantity, photo_paths)"
+    )
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -509,6 +675,7 @@ async function fetchOrders() {
   return data || [];
 }
 
+// I reload everything and tell staff when a new order has arrived
 async function refreshOrders() {
   try {
     const data = await fetchOrders();
@@ -524,14 +691,17 @@ async function refreshOrders() {
   }
 }
 
+// I wait a moment before reloading, so a burst of changes causes only one reload
 function scheduleRefresh() {
   clearTimeout(reloadTimer);
   reloadTimer = setTimeout(refreshOrders, 800);
 }
 
+// I listen for live changes, so the dashboard updates without a page refresh
 function watchOrders() {
   db.channel("staff-orders")
     .on("postgres_changes", { event: "*", schema: "public", table: "pickup_requests" }, function (payload) {
+      // For a simple update, I patch the order I already have in memory
       if (payload.eventType === "UPDATE") {
         const known = orders.find(function (order) {
           return order.id === payload.new.id;
@@ -553,12 +723,19 @@ function watchOrders() {
         return;
       }
 
+      // For a new or deleted order, I reload the full list
       scheduleRefresh();
     })
+    // New items arrive after the order itself, so I reload when they do too
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "request_items" }, scheduleRefresh)
     .subscribe();
 }
 
+// ---------------------------------------------------------------------
+// Page events
+// ---------------------------------------------------------------------
+
+// I filter the list while staff type in the search box
 searchInput.addEventListener("input", function () {
   searchText = searchInput.value;
   render();
@@ -580,7 +757,11 @@ logoutConfirmButton.addEventListener("click", async function () {
   window.location.href = LOGIN_PAGE;
 });
 
+// ---------------------------------------------------------------------
+// Start
+// ---------------------------------------------------------------------
 async function start() {
+  // I send anyone who isn't logged in to the login page
   const { data: sessionData } = await db.auth.getSession();
 
   if (!sessionData.session) {
@@ -590,6 +771,7 @@ async function start() {
 
   const userId = sessionData.session.user.id;
 
+  // I only let people listed in staff_members use this page
   const { data: staffRow, error: staffError } = await db
     .from("staff_members")
     .select("user_id")
@@ -604,6 +786,7 @@ async function start() {
   orders = await fetchOrders();
   photoUrls = await signPhotos(orders);
 
+  // If there are no orders yet, I still show the tools and keep listening for new ones
   if (orders.length === 0) {
     adminTools.hidden = false;
     buildSummary();

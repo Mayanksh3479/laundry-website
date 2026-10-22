@@ -1,8 +1,16 @@
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
 
+// =====================================================================
+// script.js: the customer side of the site (Request a Pickup form)
+// =====================================================================E";
+
+// I create one Supabase client and use it for everything on this page
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ---------------------------------------------------------------------
+// Page elements I use again and again
+// ---------------------------------------------------------------------
 const form = document.getElementById("pickup-form");
 const addButton = document.getElementById("add-item");
 const itemsContainer = document.getElementById("items");
@@ -13,9 +21,14 @@ const loginLink = document.getElementById("login-link");
 const logoutButton = document.getElementById("logout-btn");
 const ordersLink = document.getElementById("orders-link");
 
+// I remember who is logged in here (null means nobody)
 let currentUser = null;
 
-// Logged-in customers see the booking form, everyone else sees a login prompt
+// ---------------------------------------------------------------------
+// Login state
+// ---------------------------------------------------------------------
+
+// I show the booking form to logged-in customers and a login prompt to everyone else
 function updateLoginUI() {
   const loggedIn = currentUser !== null;
 
@@ -26,18 +39,22 @@ function updateLoginUI() {
   if (ordersLink) ordersLink.hidden = !loggedIn;
 }
 
-// Check once on page load, then keep the UI in sync on login/logout
+// I check the session once when the page loads
 db.auth.getSession().then(function ({ data }) {
   currentUser = data.session ? data.session.user : null;
   updateLoginUI();
 });
 
+// I keep the page in sync whenever the customer logs in or out
 db.auth.onAuthStateChange(function (event, session) {
   currentUser = session ? session.user : null;
   updateLoginUI();
 });
 
-// Log out confirmation pop-up, so an accidental tap doesn't sign the customer out
+// ---------------------------------------------------------------------
+// Log out confirmation pop-up
+// I ask first so an accidental tap doesn't sign the customer out
+// ---------------------------------------------------------------------
 const logoutDialog = document.createElement("dialog");
 logoutDialog.className = "logout-dialog";
 
@@ -70,7 +87,7 @@ logoutStayButton.addEventListener("click", function () {
   logoutDialog.close();
 });
 
-// Clicking the dark area outside the box closes it too
+// I also close the pop-up when the customer clicks the dark area outside the box
 logoutDialog.addEventListener("click", function (event) {
   if (event.target === logoutDialog) logoutDialog.close();
 });
@@ -84,7 +101,7 @@ logoutConfirmButton.addEventListener("click", async function () {
     console.log("Sign out failed:", error.message);
   }
 
-  // Update the page ourselves in case the auth listener is slow to fire
+  // I update the page myself in case the auth listener is slow to fire
   currentUser = null;
   updateLoginUI();
 
@@ -96,12 +113,18 @@ logoutButton.addEventListener("click", function () {
   logoutDialog.showModal();
 });
 
+// I warn myself in the console if the time field is missing from index.html
 if (!timeInput) {
   console.error(
     'No element with id="delivery-time" was found. Check the id of the time field in index.html.'
   );
 }
 
+// ---------------------------------------------------------------------
+// Settings I can change
+// ---------------------------------------------------------------------
+
+// The most pieces a customer can add for one item
 const MAX_QUANTITY = 3;
 
 // Delivery hours (24-hour clock) and the gap between choices in the time dropdown
@@ -109,13 +132,17 @@ const OPEN_HOUR = 9;
 const CLOSE_HOUR = 20;
 const TIME_STEP_MINUTES = 30;
 
-// Photos are shrunk in the browser before upload to save storage and data
+// I shrink photos in the browser before upload to save storage and mobile data
 const PHOTO_BUCKET = "request-photos";
 const MAX_PHOTO_SIDE = 1600;
 const PHOTO_QUALITY = 0.8;
 let nextPhotoInputId = 1;
 
-// Read the valid categories once from the datalist in index.html,
+// If true, a customer must share their location before I send the request.
+// I set it to false if I want to let customers send a request without it.
+const REQUIRE_LOCATION = true;
+
+// I read the valid categories once from the datalist in index.html,
 // so the HTML stays the single source of truth
 const validCategories = Array.from(
   document.querySelectorAll("#category-list option")
@@ -123,7 +150,47 @@ const validCategories = Array.from(
   return option.value;
 });
 
-// Reads a date typed as DD/MM/YYYY. Returns { day, month, year } or null
+// ---------------------------------------------------------------------
+// Live location
+// ---------------------------------------------------------------------
+
+// I ask the browser for the customer's current position.
+// The browser shows its own "Allow location?" permission prompt here.
+// I wrap it in a Promise so I can use await in the submit handler.
+function getLocation() {
+  return new Promise(function (resolve, reject) {
+    // Very old browsers don't have geolocation at all
+    if (!navigator.geolocation) {
+      reject({ code: 0 });
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true, // I want GPS, not just a rough guess from the network
+      timeout: 15000, // I give up after 15 seconds
+      maximumAge: 0, // I never reuse an old saved position
+    });
+  });
+}
+
+// I turn a geolocation error into a clear message the customer can act on
+function locationErrorText(error) {
+  if (error.code === 1) {
+    return "We need your location so our team can find you for pickup. Please allow location access in your browser settings and try again.";
+  }
+
+  if (error.code === 3) {
+    return "Getting your location took too long. Please check your GPS or internet and try again.";
+  }
+
+  return "We could not get your location. Please turn on location services and try again.";
+}
+
+// ---------------------------------------------------------------------
+// Date and time helpers
+// ---------------------------------------------------------------------
+
+// I read a date typed as DD/MM/YYYY. I return { day, month, year } or null
 function parseDate(dateText) {
   const match = dateText.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (!match) return null;
@@ -132,7 +199,7 @@ function parseDate(dateText) {
   const month = Number(match[2]);
   const year = Number(match[3]);
 
-  // The Date object rolls 31/02 over to March, so compare the parts back
+  // The Date object rolls 31/02 over to March, so I compare the parts back
   // to catch fake dates
   const check = new Date(year, month - 1, day);
   if (
@@ -146,7 +213,7 @@ function parseDate(dateText) {
   return { day, month, year };
 }
 
-// Accepts "6:30 PM", "6 PM", "09:00" or "18" and returns { hour, minute }
+// I accept "6:30 PM", "6 PM", "09:00" or "18" and return { hour, minute }
 // in 24-hour form, or null if it isn't a valid time
 function parseTime(timeText) {
   const match = timeText
@@ -173,7 +240,7 @@ function parseTime(timeText) {
   return { hour, minute };
 }
 
-// Builds the time dropdown: 9:00 AM, 9:30 AM ... 8:00 PM
+// I build the time dropdown: 9:00 AM, 9:30 AM ... 8:00 PM
 function fillTimeOptions() {
   timeInput.innerHTML = '<option value="">Select a time</option>';
 
@@ -195,13 +262,17 @@ function fillTimeOptions() {
   }
 }
 
-// Only a <select> needs filling; a plain text box works as it is
+// I only fill the list if the field is a <select>; a plain text box works as it is
 if (timeInput && timeInput.tagName === "SELECT") {
   fillTimeOptions();
 }
 
-// Scales a photo down to MAX_PHOTO_SIDE on its longest side and returns a JPEG.
-// Phone photos are several MB, this brings them down to a few hundred KB
+// ---------------------------------------------------------------------
+// Photos
+// ---------------------------------------------------------------------
+
+// I scale a photo down to MAX_PHOTO_SIDE on its longest side and return a JPEG.
+// Phone photos are several MB; this brings them down to a few hundred KB
 async function compressPhoto(file) {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
@@ -224,7 +295,7 @@ async function compressPhoto(file) {
   });
 }
 
-// Uploads all photos one by one and returns the storage paths, one list per item,
+// I upload all photos one by one and return the storage paths, one list per item,
 // e.g. [["<id>/item1-photo1.jpg", "<id>/item1-photo2.jpg"], ["<id>/item2-photo1.jpg"]]
 async function uploadPhotos(requestId, items) {
   const allPaths = [];
@@ -250,7 +321,7 @@ async function uploadPhotos(requestId, items) {
   return allPaths;
 }
 
-// Releases the preview image of one photo slot and hides it again
+// I release the preview image of one photo slot and hide it again
 function clearPreview(previewButton) {
   const oldUrl = previewButton.dataset.previewUrl;
 
@@ -261,7 +332,7 @@ function clearPreview(previewButton) {
   previewButton.hidden = true;
 }
 
-// Label shown above a photo slot, e.g. "Item 2 (Gents - Shirt) — Photo 1"
+// I build the label above a photo slot, e.g. "Item 2 (Gents - Shirt) — Photo 1"
 function photoCaption(row, itemNumber, photoNumber) {
   const category = row.querySelector('[name="item_category"]').value.trim();
   const name = validCategories.includes(category) ? ` (${category})` : "";
@@ -269,6 +340,7 @@ function photoCaption(row, itemNumber, photoNumber) {
   return `Item ${itemNumber}${name} — Photo ${photoNumber}`;
 }
 
+// I create one photo slot: caption, "Choose photo" button, file input and preview
 function createPhotoSlot(itemNumber, photoNumber) {
   const slot = document.createElement("div");
   slot.className = "photo-slot";
@@ -291,7 +363,7 @@ function createPhotoSlot(itemNumber, photoNumber) {
   input.accept = "image/*";
   input.required = true;
 
-  // Thumbnail stays hidden until a photo is chosen
+  // I keep the thumbnail hidden until a photo is chosen
   const previewButton = document.createElement("button");
   previewButton.type = "button";
   previewButton.className = "photo-preview";
@@ -309,7 +381,7 @@ function createPhotoSlot(itemNumber, photoNumber) {
   return slot;
 }
 
-// Keeps one row in sync: item title, and one photo slot per quantity
+// I keep one item row in sync: its title, and one photo slot per quantity
 function updatePhotoSlots(row, itemNumber) {
   const quantityInput = row.querySelector('[name="item_quantity"]');
   const slots = row.querySelector(".photo-slots");
@@ -326,21 +398,24 @@ function updatePhotoSlots(row, itemNumber) {
   }
   itemTitle.textContent = `Item ${itemNumber}`;
 
-  // Ignore half-typed or out-of-range quantities, the submit check catches them
+  // I ignore half-typed or out-of-range quantities; the submit check catches them
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) {
     return;
   }
 
+  // I add slots if the quantity went up
   while (slots.children.length < quantity) {
     slots.appendChild(createPhotoSlot(itemNumber, slots.children.length + 1));
   }
 
+  // I remove slots (and free their previews) if the quantity went down
   while (slots.children.length > quantity) {
     const lastSlot = slots.lastElementChild;
     clearPreview(lastSlot.querySelector(".photo-preview"));
     lastSlot.remove();
   }
 
+  // I refresh every caption in case the category or item number changed
   Array.from(slots.children).forEach(function (slot, index) {
     const photoNumber = index + 1;
 
@@ -355,7 +430,7 @@ function updatePhotoSlots(row, itemNumber) {
   });
 }
 
-// Re-number every row, needed after adding or removing one
+// I re-number every row; I need this after adding or removing one
 function updateAllPhotoSlots() {
   const rows = itemsContainer.querySelectorAll(".item-row");
 
@@ -364,7 +439,7 @@ function updateAllPhotoSlots() {
   });
 }
 
-// After a successful send: back to a single empty row
+// After a successful send, I go back to a single empty row
 function resetItemRows() {
   const rows = itemsContainer.querySelectorAll(".item-row");
 
@@ -377,7 +452,9 @@ function resetItemRows() {
   updateAllPhotoSlots();
 }
 
+// ---------------------------------------------------------------------
 // Lightbox for viewing a selected photo full size
+// ---------------------------------------------------------------------
 const lightbox = document.createElement("dialog");
 lightbox.className = "photo-lightbox";
 lightbox.style.border = "0";
@@ -411,8 +488,12 @@ lightbox.addEventListener("click", function (event) {
   if (event.target === lightbox) lightbox.close();
 });
 
-// One listener on the container covers every photo input, including
-// the ones added later when the quantity or row count changes
+// ---------------------------------------------------------------------
+// Item row events
+// ---------------------------------------------------------------------
+
+// I use one listener on the container to cover every photo input, including
+// the ones I add later when the quantity or row count changes
 itemsContainer.addEventListener("change", function (event) {
   const input = event.target;
   if (input.name !== "item_photo") return;
@@ -420,7 +501,7 @@ itemsContainer.addEventListener("change", function (event) {
   const slot = input.closest(".photo-slot");
   const previewButton = slot.querySelector(".photo-preview");
 
-  // Start clean, this also covers the customer cancelling the file picker
+  // I start clean; this also covers the customer cancelling the file picker
   clearPreview(previewButton);
 
   const file = input.files[0];
@@ -438,7 +519,7 @@ itemsContainer.addEventListener("change", function (event) {
   previewButton.hidden = false;
 });
 
-// Clicking a thumbnail opens it in the lightbox
+// When the customer clicks a thumbnail, I open it in the lightbox
 itemsContainer.addEventListener("click", function (event) {
   const previewButton = event.target.closest(".photo-preview");
   if (!previewButton) return;
@@ -447,9 +528,10 @@ itemsContainer.addEventListener("click", function (event) {
   lightbox.showModal();
 });
 
+// I build the first row's photo slots as soon as the page loads
 updateAllPhotoSlots();
 
-// Copy the first row as a template for a new one, then clear its values
+// I copy the first row as a template for a new one, then clear its values
 addButton.addEventListener("click", function () {
   const firstRow = itemsContainer.querySelector(".item-row");
   const newRow = firstRow.cloneNode(true);
@@ -462,16 +544,17 @@ addButton.addEventListener("click", function () {
   updateAllPhotoSlots();
 });
 
+// I remove an item row when its "Remove this item" button is clicked
 itemsContainer.addEventListener("click", function (event) {
   if (!event.target.classList.contains("remove-item")) return;
 
   const rows = itemsContainer.querySelectorAll(".item-row");
 
-  // Always keep at least one row
+  // I always keep at least one row
   if (rows.length > 1) {
     const row = event.target.closest(".item-row");
 
-    // Free the memory used by this row's previews
+    // I free the memory used by this row's previews
     row.querySelectorAll(".photo-preview").forEach(function (previewButton) {
       clearPreview(previewButton);
     });
@@ -481,7 +564,7 @@ itemsContainer.addEventListener("click", function (event) {
   }
 });
 
-// Quantity or category changed, so refresh the photo slots and their captions
+// When the quantity or category changes, I refresh the photo slots and their captions
 itemsContainer.addEventListener("input", function (event) {
   if (
     event.target.name === "item_quantity" ||
@@ -491,12 +574,12 @@ itemsContainer.addEventListener("input", function (event) {
   }
 });
 
-// Adds the slashes automatically while the customer types the date
+// I add the slashes automatically while the customer types the date
 dateInput.addEventListener("input", function (event) {
   const raw = dateInput.value;
   const digits = raw.replace(/\D/g, "").slice(0, 8);
 
-  // When deleting, don't re-add a slash the customer just removed
+  // When deleting, I don't re-add a slash the customer just removed
   const deleting = !!event.inputType && event.inputType.startsWith("delete");
   const keepSlash = !deleting || raw.endsWith("/");
 
@@ -513,10 +596,13 @@ dateInput.addEventListener("input", function (event) {
   dateInput.value = formatted;
 });
 
+// ---------------------------------------------------------------------
+// Sending the request
+// ---------------------------------------------------------------------
 form.addEventListener("submit", async function (event) {
   event.preventDefault();
 
-  // 0. Only logged-in customers can place a request
+  // Step 0: I only let logged-in customers place a request
   const { data: sessionData } = await db.auth.getSession();
   if (!sessionData.session) {
     alert("Please log in to place a request.");
@@ -524,7 +610,7 @@ form.addEventListener("submit", async function (event) {
     return;
   }
 
-  // 1. Check the delivery date and time
+  // Step 1: I check the delivery date and time
   if (!timeInput) {
     alert("The time field is missing from the page.");
     return;
@@ -562,7 +648,7 @@ form.addEventListener("submit", async function (event) {
     return;
   }
 
-  // 2. Collect and check every item row
+  // Step 2: I collect and check every item row
   const items = [];
   const rows = document.querySelectorAll(".item-row");
 
@@ -599,26 +685,61 @@ form.addEventListener("submit", async function (event) {
     items.push({ category, quantity, photos });
   }
 
-  // 3. Upload the photos, then save the request and its items
+  // Step 3: I ask for the customer's live location.
+  // The browser shows its permission prompt at this moment.
   const submitButton = form.querySelector('button[type="submit"]');
   const submitLabel = submitButton.textContent;
   submitButton.disabled = true;
+  submitButton.textContent = "Getting your location...";
+
+  let coords = null;
+
+  try {
+    const position = await getLocation();
+
+    coords = {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracy: position.coords.accuracy,
+    };
+  } catch (error) {
+    console.log("Location failed:", error.code, error.message);
+
+    // If location is required, I stop here and give the button back
+    if (REQUIRE_LOCATION) {
+      alert(locationErrorText(error));
+      submitButton.disabled = false;
+      submitButton.textContent = submitLabel;
+      return;
+    }
+
+    // Otherwise I carry on without a location (coords stays null)
+  }
+
+  // Step 4: I upload the photos, then save the request and its items
   submitButton.textContent = "Sending...";
 
-  // Generate the id here so photos and items can be linked to it
+  // I generate the id here so photos and items can be linked to it
   // before the request row exists
   const requestId = crypto.randomUUID();
 
   try {
     const photoPaths = await uploadPhotos(requestId, items);
 
+    // I save the location with the request. The customer's name, email and
+    // phone are filled in automatically by the database trigger.
     const { error: requestError } = await db.from("pickup_requests").insert({
       id: requestId,
       user_id: sessionData.session.user.id,
       delivery_time: deliveryDate.toISOString(),
+      latitude: coords ? coords.latitude : null,
+      longitude: coords ? coords.longitude : null,
+      location_accuracy_m: coords ? coords.accuracy : null,
+      location_captured_at: coords ? new Date().toISOString() : null,
     });
     if (requestError) throw requestError;
 
+    // I save every item and link it to the request
     const itemRows = items.map(function (item, index) {
       return {
         request_id: requestId,
@@ -638,7 +759,7 @@ form.addEventListener("submit", async function (event) {
     console.log("Sending failed:", error.message);
     alert("Sorry, we could not send your request. Please try again.");
   } finally {
-    // Always give the button back, whether it worked or not
+    // I always give the button back, whether it worked or not
     submitButton.disabled = false;
     submitButton.textContent = submitLabel;
   }

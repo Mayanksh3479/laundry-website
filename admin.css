@@ -1,9 +1,19 @@
+/* =====================================================================
+   admin.css: styles for the staff dashboard (admin.html)
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   Page layout
+   --------------------------------------------------------------------- */
+
+/* I keep the content in a centred column */
 main {
   max-width: 960px;
   margin: 0 auto;
   padding: 20px 16px 40px;
 }
 
+/* I remove the default section box so my own cards sit directly on the page */
 main section {
   background: transparent;
   padding: 0;
@@ -11,6 +21,7 @@ main section {
   border-radius: 0;
 }
 
+/* I use this animation to slowly move the gradient on the log out button */
 @keyframes ordersGlow {
   0% {
     background-position: 0% 50%;
@@ -23,6 +34,9 @@ main section {
   }
 }
 
+/* ---------------------------------------------------------------------
+   Log out button (top right)
+   --------------------------------------------------------------------- */
 #logout-btn {
   position: absolute;
   top: 32px;
@@ -60,6 +74,9 @@ main section {
   transform: translateY(0) scale(0.97);
 }
 
+/* ---------------------------------------------------------------------
+   Page header (breadcrumb, title, subtitle)
+   --------------------------------------------------------------------- */
 .page-header {
   background: white;
   border-bottom: 1px solid #d5d9d9;
@@ -97,6 +114,7 @@ main section {
   color: #111827;
 }
 
+/* I draw the small coloured bar under the title */
 .page-title::after {
   content: "";
   display: block;
@@ -113,6 +131,9 @@ main section {
   color: #565959;
 }
 
+/* ---------------------------------------------------------------------
+   Message box (shared by the orders page and the dashboard)
+   --------------------------------------------------------------------- */
 #orders-message {
   background: white;
   padding: 24px;
@@ -125,6 +146,9 @@ main section {
   display: none;
 }
 
+/* ---------------------------------------------------------------------
+   Filter pills
+   --------------------------------------------------------------------- */
 .order-filters {
   display: flex;
   gap: 10px;
@@ -153,6 +177,9 @@ main section {
   border-color: #111827;
 }
 
+/* ---------------------------------------------------------------------
+   Order card
+   --------------------------------------------------------------------- */
 .order-card {
   background: white;
   border: 1px solid #d5d9d9;
@@ -162,6 +189,7 @@ main section {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
 }
 
+/* The grey header strip at the top of each card */
 .order-head {
   display: flex;
   flex-wrap: wrap;
@@ -189,6 +217,7 @@ main section {
   color: #111827;
 }
 
+/* I push the order number to the far right of the header */
 .order-head-id {
   margin-left: auto;
   text-align: right;
@@ -221,6 +250,9 @@ main section {
   color: #565959;
 }
 
+/* ---------------------------------------------------------------------
+   Progress tracker (used on the customer's My Orders page)
+   --------------------------------------------------------------------- */
 .tracker {
   display: flex;
   list-style: none;
@@ -236,6 +268,7 @@ main section {
   color: #6b7280;
 }
 
+/* I draw the circle for each step */
 .tracker li::before {
   content: "";
   display: block;
@@ -251,6 +284,7 @@ main section {
   line-height: 24px;
 }
 
+/* I draw the line that joins one step to the next */
 .tracker li::after {
   content: "";
   position: absolute;
@@ -289,6 +323,9 @@ main section {
   box-shadow: 0 0 0 5px rgba(30, 90, 168, 0.2);
 }
 
+/* ---------------------------------------------------------------------
+   Items inside an order
+   --------------------------------------------------------------------- */
 .order-items {
   margin-top: 26px;
   border-top: 1px solid #e5e7eb;
@@ -314,6 +351,7 @@ main section {
   padding-bottom: 4px;
 }
 
+/* Photo buttons: the big first photo and the small extra ones */
 .item-photo,
 .item-thumb {
   flex: none;
@@ -351,6 +389,7 @@ main section {
   object-fit: cover;
 }
 
+/* I show the first letter of the item when there is no photo */
 .item-photo-empty {
   flex: none;
   width: 104px;
@@ -428,6 +467,9 @@ main section {
   color: #565959;
 }
 
+/* ---------------------------------------------------------------------
+   Photo lightbox (full-size photo pop-up)
+   --------------------------------------------------------------------- */
 .photo-lightbox {
   max-width: 92vw;
   padding: 16px;
@@ -454,6 +496,9 @@ main section {
   object-fit: contain;
 }
 
+/* ---------------------------------------------------------------------
+   Empty state ("No orders match this view")
+   --------------------------------------------------------------------- */
 .orders-empty {
   background: white;
   border: 1px solid #d5d9d9;
@@ -473,6 +518,9 @@ main section {
   font-size: 17px;
 }
 
+/* ---------------------------------------------------------------------
+   Small screens (phones)
+   --------------------------------------------------------------------- */
 @media (max-width: 640px) {
   .order-head {
     gap: 12px 24px;
@@ -488,6 +536,7 @@ main section {
     padding: 18px 16px;
   }
 
+  /* I turn the tracker into a vertical list on phones */
   .tracker {
     flex-direction: column;
   }
@@ -535,6 +584,7 @@ main section {
   }
 }
 
+/* I switch off the button animation for people who prefer less motion */
 @media (prefers-reduced-motion: reduce) {
   #logout-btn {
     animation: none;
@@ -563,6 +613,12 @@ main section {
     font-size: 26px;
   }
 }
+
+/* =====================================================================
+   Staff dashboard only
+   ===================================================================== */
+
+/* I hide these boxes whenever they have the "hidden" attribute */
 #admin-message {
   background: white;
   padding: 24px;
@@ -577,6 +633,9 @@ main section {
   display: none;
 }
 
+/* ---------------------------------------------------------------------
+   Status summary cards (All, Pending, Picked up, ...)
+   --------------------------------------------------------------------- */
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -602,6 +661,7 @@ main section {
   background: #eef3fa;
 }
 
+/* I highlight the card that is currently selected */
 .stat-card.active {
   background: white;
   border-color: #1e5aa8;
@@ -618,6 +678,9 @@ main section {
   color: #565959;
 }
 
+/* ---------------------------------------------------------------------
+   Search box
+   --------------------------------------------------------------------- */
 .admin-toolbar {
   margin-top: 16px;
 }
@@ -627,6 +690,9 @@ main section {
   background: white;
 }
 
+/* ---------------------------------------------------------------------
+   Controls row inside an order (status, amount, payment)
+   --------------------------------------------------------------------- */
 .admin-status-row {
   display: flex;
   align-items: center;
@@ -650,6 +716,7 @@ main section {
   cursor: pointer;
 }
 
+/* I colour the status dropdown to match the current status */
 .status-select[data-status="pending"] {
   border-color: #f59e0b;
   color: #92400e;
@@ -681,6 +748,65 @@ main section {
   cursor: wait;
 }
 
+.amount-label {
+  margin-left: 12px;
+}
+
+.amount-input {
+  width: 140px;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #b8c4d0;
+  border-radius: 8px;
+  background: white;
+  font-weight: bold;
+}
+
+/* ---------------------------------------------------------------------
+   Customer box: name, email, phone and location (new)
+   --------------------------------------------------------------------- */
+
+/* I separate the box from the controls above it with a thin line */
+.customer-box {
+  margin-top: 22px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Each line is a grey label on the left and the value on the right */
+.customer-line {
+  display: flex;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.customer-label {
+  flex: none;
+  width: 70px;
+  color: #565959;
+}
+
+.customer-value {
+  color: #111827;
+  word-break: break-word; /* I let long text wrap instead of overflowing */
+}
+
+/* I style email, phone and map links in the same blue as the rest of the site */
+.customer-link {
+  color: #1e5aa8;
+  font-weight: bold;
+  text-decoration: none;
+  word-break: break-all; /* I let long email addresses wrap on small screens */
+}
+
+.customer-link:hover {
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------
+   Toast message (small pop-up at the bottom of the screen)
+   --------------------------------------------------------------------- */
 .toast {
   position: fixed;
   left: 50%;
@@ -699,6 +825,9 @@ main section {
   background: #b42318;
 }
 
+/* ---------------------------------------------------------------------
+   Dashboard on tablets and phones
+   --------------------------------------------------------------------- */
 @media (max-width: 900px) {
   .summary-grid {
     grid-template-columns: repeat(3, 1fr);
@@ -709,18 +838,4 @@ main section {
   .summary-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-}
-
-.amount-label {
-  margin-left: 12px;
-}
-
-.amount-input {
-  width: 140px;
-  max-width: 100%;
-  padding: 10px 12px;
-  border: 2px solid #b8c4d0;
-  border-radius: 8px;
-  background: white;
-  font-weight: bold;
 }
