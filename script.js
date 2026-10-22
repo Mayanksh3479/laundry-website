@@ -36,8 +36,62 @@ db.auth.onAuthStateChange(function (event, session) {
   updateLoginUI();
 });
 
-logoutButton.addEventListener("click", async function () {
-  await db.auth.signOut();
+// Log out confirmation pop-up (asks first, in case of an accidental tap)
+const logoutDialog = document.createElement("dialog");
+logoutDialog.className = "logout-dialog";
+
+const logoutDialogTitle = document.createElement("h3");
+logoutDialogTitle.className = "logout-dialog-title";
+logoutDialogTitle.textContent = "Log out?";
+
+const logoutDialogText = document.createElement("p");
+logoutDialogText.className = "logout-dialog-text";
+logoutDialogText.textContent = "Are you sure you want to log out of your account?";
+
+const logoutStayButton = document.createElement("button");
+logoutStayButton.type = "button";
+logoutStayButton.className = "logout-stay";
+logoutStayButton.textContent = "Stay logged in";
+
+const logoutConfirmButton = document.createElement("button");
+logoutConfirmButton.type = "button";
+logoutConfirmButton.className = "logout-confirm";
+logoutConfirmButton.textContent = "Yes, log out";
+
+const logoutDialogActions = document.createElement("div");
+logoutDialogActions.className = "logout-dialog-actions";
+logoutDialogActions.append(logoutStayButton, logoutConfirmButton);
+
+logoutDialog.append(logoutDialogTitle, logoutDialogText, logoutDialogActions);
+document.body.appendChild(logoutDialog);
+
+logoutStayButton.addEventListener("click", function () {
+  logoutDialog.close();
+});
+
+logoutDialog.addEventListener("click", function (event) {
+  if (event.target === logoutDialog) logoutDialog.close();
+});
+
+logoutConfirmButton.addEventListener("click", async function () {
+  logoutConfirmButton.disabled = true;
+
+  try {
+    await db.auth.signOut();
+  } catch (error) {
+    console.log("Sign out failed:", error.message);
+  }
+
+  // Make sure the page switches back to the logged-out view
+  currentUser = null;
+  updateLoginUI();
+
+  logoutConfirmButton.disabled = false;
+  logoutDialog.close();
+});
+
+logoutButton.addEventListener("click", function () {
+  logoutDialog.showModal();
 });
 
 if (!timeInput) {

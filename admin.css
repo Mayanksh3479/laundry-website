@@ -1,0 +1,147 @@
+#admin-message {
+  background: white;
+  padding: 24px;
+  border-radius: 10px;
+  text-align: center;
+  color: #4b5563;
+}
+
+#admin-message[hidden],
+#admin-tools[hidden],
+.toast[hidden] {
+  display: none;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin: 0;
+  padding: 14px 16px;
+  background: white;
+  color: #111827;
+  border: 2px solid #d5d9d9;
+  border-radius: 12px;
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.stat-card:hover {
+  background: #eef3fa;
+}
+
+.stat-card.active {
+  background: white;
+  border-color: #1e5aa8;
+  box-shadow: 0 0 0 3px rgba(30, 90, 168, 0.15);
+}
+
+.stat-count {
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #565959;
+}
+
+.admin-toolbar {
+  margin-top: 16px;
+}
+
+.admin-toolbar input {
+  max-width: 340px;
+  background: white;
+}
+
+.admin-status-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-status-label {
+  font-weight: bold;
+  color: #111827;
+}
+
+.status-select {
+  width: 240px;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #b8c4d0;
+  border-radius: 8px;
+  background: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.status-select[data-status="pending"] {
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.status-select[data-status="picked_up"] {
+  border-color: #3b82f6;
+  color: #1e40af;
+}
+
+.status-select[data-status="washing"] {
+  border-color: #6366f1;
+  color: #3730a3;
+}
+
+.status-select[data-status="ready"] {
+  border-color: #10b981;
+  color: #065f46;
+}
+
+.status-select[data-status="delivered"] {
+  border-color: #067d62;
+  color: #14532d;
+  background: #ecfdf5;
+}
+
+.status-select:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 50;
+  padding: 12px 22px;
+  background: #111827;
+  color: white;
+  border-radius: 999px;
+  font-size: 15px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.toast.error {
+  background: #b42318;
+}
+
+@media (max-width: 900px) {
+  .summary-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 500px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

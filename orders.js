@@ -1,3 +1,6 @@
+const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
+const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
+
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const LOGIN_PAGE = "login.html";
@@ -378,6 +381,30 @@ async function signPhotos(orders) {
   return map;
 }
 
+function watchOrders(userId) {
+  db.channel("my-orders")
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "pickup_requests",
+        filter: "user_id=eq." + userId,
+      },
+      function (payload) {
+        const changed = allOrders.find(function (order) {
+          return order.id === payload.new.id;
+        });
+
+        if (!changed) return;
+
+        changed.status = payload.new.status;
+        render();
+      }
+    )
+    .subscribe();
+}
+
 async function loadOrders() {
   const { data: sessionData } = await db.auth.getSession();
 
@@ -411,6 +438,7 @@ async function loadOrders() {
   allOrders = data;
   photoUrls = await signPhotos(data);
   render();
+  watchOrders(userId);
 }
 
 logoutButton.addEventListener("click", async function () {

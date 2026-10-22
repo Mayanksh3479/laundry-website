@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Staff Dashboard | Super Care Dry Cleaners</title>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="orders.css">
+    <link rel="stylesheet" href="admin.css">
+</head>
+
+<body>
+    <h1>Super Care Dry Cleaners</h1>
+
+    <button type="button" id="logout-btn" class="login-btn">Log out</button>
+
+    <div class="page-header">
+        <div class="page-header-inner">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="index.html">Home</a>
+                <span>/</span>
+                <span>Staff dashboard</span>
+            </nav>
+
+            <h2 class="page-title">Staff Dashboard</h2>
+            <p class="page-subtitle">Change an order's status here and the customer sees it on their My Orders page right away.</p>
+        </div>
+    </div>
+
+    <main>
+        <section>
+            <p id="admin-message" hidden></p>
+
+            <div id="admin-tools" hidden>
+                <div id="summary" class="summary-grid"></div>
+
+                <div class="admin-toolbar">
+                    <input type="search" id="search" placeholder="Search by order number" autocomplete="off">
+                </div>
+            </div>
+
+            <div id="admin-list"></div>
+        </section>
+    </main>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="admin.js"></script>
+</body>
+</html>
