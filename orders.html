@@ -6,35 +6,226 @@
 
     <title>My Orders | Super Care Dry Cleaners</title>
 
-    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="orders.css">
 </head>
 
 <body>
-    <h1>Super Care Dry Cleaners</h1>
+    <header class="site-nav">
+        <div class="nav-inner">
+            <a href="index.html" class="brand">
+                <span class="brand-logo">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"
+                         stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 7.5a2.3 2.3 0 1 1 2.3 2.3c-1.3.4-2.3 1.2-2.3 2.4v.4"></path>
+                        <path d="M12 12.6 3.6 18.6c-.9.7-.4 2 .7 2h15.4c1.1 0 1.6-1.3.7-2L12 12.6z"></path>
+                    </svg>
+                </span>
+                <span class="brand-text">
+                    <strong>Super Care</strong>
+                    <small>DRY CLEANERS</small>
+                </span>
+            </a>
 
-    <button type="button" id="logout-btn" class="login-btn">Log out</button>
-
-    <div class="page-header">
-        <div class="page-header-inner">
-            <nav class="breadcrumb" aria-label="Breadcrumb">
-                <a href="index.html">Home</a>
-                <span>/</span>
-                <span>My Orders</span>
+            <nav class="nav-links" aria-label="Main">
+                <a href="index.html" class="nav-link">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                         stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 11.5 12 4l9 7.5"></path>
+                        <path d="M5.5 10v10h13V10"></path>
+                    </svg>
+                    Home
+                </a>
+                <a href="orders.html" class="nav-link active" aria-current="page">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                         stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 3 3.5 7.5v9L12 21l8.5-4.5v-9L12 3z"></path>
+                        <path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"></path>
+                    </svg>
+                    My Orders
+                </a>
+                <a href="index.html#pickup" class="nav-link">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                         stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="3.5" y="5" width="17" height="15" rx="3"></rect>
+                        <path d="M8 3v4M16 3v4M3.5 10h17"></path>
+                    </svg>
+                    Book Pickup
+                </a>
+                <button type="button" class="nav-link" data-account-toggle>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                         stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="8" r="4"></circle>
+                        <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"></path>
+                    </svg>
+                    Account
+                </button>
             </nav>
 
-            <h2 class="page-title">My Orders</h2>
-            <p class="page-subtitle">Track your pickups, cleaning progress and deliveries.</p>
+            <div class="account-wrap">
+                <button type="button" class="avatar-btn" data-account-toggle aria-label="Account menu">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                         stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="8" r="4"></circle>
+                        <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"></path>
+                    </svg>
+                </button>
+
+                <div id="account-menu" class="account-menu" hidden>
+                    <p class="account-label">Signed in as</p>
+                    <p id="account-email" class="account-email"></p>
+                    <button type="button" id="logout-btn">Log out</button>
+                </div>
+            </div>
         </div>
-    </div>
+    </header>
 
-    <main>
-        <section>
-            <p id="orders-message" hidden></p>
+    <main class="dash">
+        <section class="page-hero">
+            <div>
+                <h1 class="hero-title">My Orders</h1>
+                <p class="hero-sub">Track your pickups, cleaning progress and deliveries.</p>
+            </div>
 
-            <div id="orders-list"></div>
+            <svg class="hero-art" viewBox="0 0 240 160" aria-hidden="true">
+                <ellipse cx="120" cy="88" rx="108" ry="64" fill="#e6efff"></ellipse>
+                <path d="M120 22v10" stroke="#2563eb" stroke-width="5" stroke-linecap="round"></path>
+                <path d="M120 32c-8 0-8-10 0-10s8 10 0 10" fill="none" stroke="#2563eb" stroke-width="5"></path>
+                <path d="M120 34 70 62" stroke="#2563eb" stroke-width="5" stroke-linecap="round"></path>
+                <path d="M120 34 170 62" stroke="#2563eb" stroke-width="5" stroke-linecap="round"></path>
+                <path d="M72 62l24-6 24 12 24-12 24 6 18 26-18 10v44H72V98L54 88z" fill="#60a5fa" stroke="#2563eb" stroke-width="4" stroke-linejoin="round"></path>
+                <path d="M96 56l24 20 24-20" fill="none" stroke="#2563eb" stroke-width="4" stroke-linejoin="round"></path>
+                <path d="M120 76v68" stroke="#2563eb" stroke-width="3"></path>
+                <circle cx="198" cy="40" r="4" fill="#3b82f6"></circle>
+                <circle cx="44" cy="52" r="3" fill="#93c5fd"></circle>
+                <circle cx="206" cy="110" r="3" fill="#93c5fd"></circle>
+            </svg>
+        </section>
+
+        <section class="summary-card">
+            <div class="summary-main">
+                <div class="summary-icon">
+                    <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor"
+                         stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 3 3.5 7.5v9L12 21l8.5-4.5v-9L12 3z"></path>
+                        <path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="summary-label">YOUR ORDERS</p>
+                    <h2 id="summary-title" class="summary-title">&nbsp;</h2>
+                    <p id="summary-sub" class="summary-sub">Keep track of every pickup and delivery.</p>
+                </div>
+            </div>
+
+            <div class="summary-side">
+                <button type="button" class="summary-row" data-filter="active">
+                    <span class="row-icon row-icon-blue">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="M12 7v5l3 2"></path>
+                        </svg>
+                    </span>
+                    <span class="row-text">
+                        <strong>In progress</strong>
+                        <small>Pickup, cleaning and delivery</small>
+                    </span>
+                    <span id="count-active" class="row-count">0</span>
+                    <span class="row-chevron">&rsaquo;</span>
+                </button>
+
+                <button type="button" class="summary-row" data-filter="completed">
+                    <span class="row-icon row-icon-green">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M5 12.5 10 17.5 19 7.5"></path>
+                        </svg>
+                    </span>
+                    <span class="row-text">
+                        <strong>Completed</strong>
+                        <small>Past orders</small>
+                    </span>
+                    <span id="count-completed" class="row-count">0</span>
+                    <span class="row-chevron">&rsaquo;</span>
+                </button>
+            </div>
+        </section>
+
+        <div class="orders-toolbar">
+            <h2 class="toolbar-title">Recent Orders</h2>
+
+            <div class="toolbar-controls">
+                <label class="search-box">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <path d="M16.5 16.5 21 21"></path>
+                    </svg>
+                    <input type="search" id="order-search" placeholder="Search by order ID..." autocomplete="off">
+                </label>
+
+                <select id="order-filter" aria-label="Filter orders">
+                    <option value="all">All Orders</option>
+                    <option value="active">In progress</option>
+                    <option value="completed">Completed</option>
+                </select>
+            </div>
+        </div>
+
+        <p id="orders-message" class="orders-message" hidden></p>
+
+        <div id="orders-list"></div>
+
+        <section class="cta-card">
+            <div class="cta-icon">
+                <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor"
+                     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3.5" y="5" width="17" height="15" rx="3"></rect>
+                    <path d="M8 3v4M16 3v4M3.5 10h17M12 13v4M10 15h4"></path>
+                </svg>
+            </div>
+            <div class="cta-text">
+                <h3>Need a fresh start?</h3>
+                <p>Schedule a pickup for your next load of laundry.</p>
+            </div>
+            <a href="index.html#pickup" class="cta-btn">+ Request a pickup</a>
         </section>
     </main>
+
+    <nav class="bottom-bar" aria-label="Main">
+        <a href="index.html">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 11.5 12 4l9 7.5"></path>
+                <path d="M5.5 10v10h13V10"></path>
+            </svg>
+            Home
+        </a>
+        <a href="orders.html" class="active">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3 3.5 7.5v9L12 21l8.5-4.5v-9L12 3z"></path>
+                <path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"></path>
+            </svg>
+            My Orders
+        </a>
+        <a href="index.html#pickup">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3.5" y="5" width="17" height="15" rx="3"></rect>
+                <path d="M8 3v4M16 3v4M3.5 10h17"></path>
+            </svg>
+            Book Pickup
+        </a>
+        <button type="button" data-account-toggle>
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="8" r="4"></circle>
+                <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"></path>
+            </svg>
+            Account
+        </button>
+    </nav>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="orders.js"></script>

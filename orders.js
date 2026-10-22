@@ -4,51 +4,45 @@ const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const LOGIN_PAGE = "login.html";
-const HOME_PAGE = "index.html";
+const PICKUP_PAGE = "index.html#pickup";
 const PHOTO_BUCKET = "request-photos";
 const PHOTO_LINK_SECONDS = 3600;
+const REFRESH_DELAY = 900;
+
+const STEPS = [
+  { value: "pending", label: "Pickup Scheduled", badge: "Pickup Scheduled", activeText: "" },
+  { value: "picked_up", label: "Picked Up", badge: "Picked Up", activeText: "Collected" },
+  { value: "washing", label: "Cleaning", badge: "In Cleaning", activeText: "In Progress" },
+  { value: "ready", label: "Ready for Delivery", badge: "Ready for Delivery", activeText: "Ready now" },
+  { value: "delivered", label: "Delivered", badge: "Delivered", activeText: "" },
+];
+
+const ICONS = {
+  calendar:
+    '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="3"></rect><path d="M8 3v4M16 3v4M3.5 10h17M8 14h2M12 14h2M8 17h2"></path></svg>',
+  shirt:
+    '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 3 6l2.5 4L8 9v12h8V9l2.5 1L21 6l-5-3c-.6 1.6-2 2.5-4 2.5S8.6 4.6 8 3z"></path></svg>',
+  arrow:
+    '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>',
+};
 
 const ordersList = document.getElementById("orders-list");
 const ordersMessage = document.getElementById("orders-message");
+const summaryTitle = document.getElementById("summary-title");
+const summarySub = document.getElementById("summary-sub");
+const countActive = document.getElementById("count-active");
+const countCompleted = document.getElementById("count-completed");
+const searchInput = document.getElementById("order-search");
+const filterSelect = document.getElementById("order-filter");
+const accountMenu = document.getElementById("account-menu");
+const accountEmail = document.getElementById("account-email");
 const logoutButton = document.getElementById("logout-btn");
 
-const STATUS_STEPS = [
-  {
-    value: "pending",
-    label: "Order placed",
-    headline: "Order received",
-    text: "We will collect your clothes at the scheduled time.",
-  },
-  {
-    value: "picked_up",
-    label: "Picked up",
-    headline: "Clothes picked up",
-    text: "Your items have reached our shop.",
-  },
-  {
-    value: "washing",
-    label: "Cleaning",
-    headline: "Cleaning in progress",
-    text: "Your clothes are being cleaned with care.",
-  },
-  {
-    value: "ready",
-    label: "Ready",
-    headline: "Ready for delivery",
-    text: "Your clothes are clean and on their way back to you.",
-  },
-  {
-    value: "delivered",
-    label: "Delivered",
-    headline: "Delivered",
-    text: "This order is complete. Thank you for choosing Super Care!",
-  },
-];
-
+let currentUserId = null;
 let allOrders = [];
 let photoUrls = {};
-let activeFilter = "all";
-let filterBar = null;
+let openOrders = new Set();
+let refreshTimer = null;
 
 const lightbox = document.createElement("dialog");
 lightbox.className = "photo-lightbox";
@@ -85,8 +79,14 @@ function el(tag, className, text) {
   return node;
 }
 
-function formatDate(isoText) {
-  if (!isoText) return "-";
+function icon(name, className) {
+  const span = el("span", className);
+  span.innerHTML = ICONS[name];
+  return span;
+}
+
+function formatDay(isoText) {
+  if (!isoText) return "";
 
   return new Date(isoText).toLocaleDateString("en-IN", {
     day: "numeric",
@@ -96,7 +96,7 @@ function formatDate(isoText) {
 }
 
 function formatDateTime(isoText) {
-  if (!isoText) return "-";
+  if (!isoText) return "";
 
   return new Date(isoText).toLocaleString("en-IN", {
     day: "numeric",
@@ -107,16 +107,28 @@ function formatDateTime(isoText) {
   });
 }
 
+function orderLabel(order) {
+  if (order.order_no !== null && order.order_no !== undefined) {
+    return "SC" + (1000 + Number(order.order_no));
+  }
+
+  return order.id.slice(0, 8).toUpperCase();
+}
+
 function getStep(status) {
-  return STATUS_STEPS.find(function (step) {
+  return STEPS.find(function (step) {
     return step.value === status;
   });
 }
 
 function stepIndex(status) {
-  return STATUS_STEPS.findIndex(function (step) {
+  return STEPS.findIndex(function (step) {
     return step.value === status;
   });
+}
+
+function isDelivered(order) {
+  return order.status === "delivered";
 }
 
 function splitCategory(category) {
@@ -129,33 +141,54 @@ function splitCategory(category) {
   return { group: "", name: category };
 }
 
-function isDelivered(order) {
-  return order.status === "delivered";
-}
+function statusDates(order) {
+  const map = {};
 
-function headerBlock(label, value) {
-  const block = el("div", "order-head-block");
-  block.append(el("span", "order-head-label", label), el("span", "order-head-value", value));
-  return block;
-}
-
-function buildTracker(status) {
-  const current = stepIndex(status);
-  const tracker = el("ol", "tracker");
-
-  STATUS_STEPS.forEach(function (step, index) {
-    const item = el("li", "", step.label);
-
-    if (index < current || (index === current && step.value === "delivered")) {
-      item.className = "done";
-    } else if (index === current) {
-      item.className = "current";
+  (order.order_status_history || []).forEach(function (entry) {
+    if (!map[entry.status] || entry.changed_at < map[entry.status]) {
+      map[entry.status] = entry.changed_at;
     }
-
-    tracker.appendChild(item);
   });
 
-  return tracker;
+  if (!map.pending) map.pending = order.created_at;
+
+  return map;
+}
+
+function buildSteps(order) {
+  const current = stepIndex(order.status);
+  const delivered = isDelivered(order);
+  const dates = statusDates(order);
+  const list = el("ol", "steps");
+
+  STEPS.forEach(function (step, index) {
+    const item = el("li", "step");
+
+    let state = "future";
+    if (index < current || (index === current && delivered)) state = "done";
+    else if (index === current) state = "current";
+
+    if (index <= current) item.classList.add("reached");
+    item.classList.add(state);
+
+    let sub = "Pending";
+
+    if (state === "done") {
+      sub = dates[step.value] ? formatDay(dates[step.value]) : "Completed";
+    } else if (state === "current") {
+      sub = index === 0 ? formatDay(dates.pending) : step.activeText;
+    }
+
+    item.append(
+      el("span", "step-dot", state === "done" ? "✓" : ""),
+      el("span", "step-name", step.label),
+      el("span", "step-sub", sub)
+    );
+
+    list.appendChild(item);
+  });
+
+  return list;
 }
 
 function buildPhotoButton(url, className, altText) {
@@ -177,7 +210,7 @@ function buildPhotoButton(url, className, altText) {
   return button;
 }
 
-function buildItem(item, order) {
+function buildItem(item) {
   const parts = splitCategory(item.category);
   const urls = (item.photo_paths || [])
     .map(function (path) {
@@ -212,104 +245,130 @@ function buildItem(item, order) {
     details.appendChild(extra);
   }
 
-  const step = getStep(order.status);
-  const side = el("div", "item-side");
-  side.appendChild(
-    el(
-      "span",
-      "status-pill " + (isDelivered(order) ? "pill-delivered" : "pill-active"),
-      step ? step.headline : order.status
-    )
-  );
-  side.appendChild(el("div", "item-side-text", "Deliver by " + formatDateTime(order.delivery_time)));
-
-  row.append(details, side);
+  row.appendChild(details);
   return row;
 }
 
+function buildDetails(order) {
+  const panel = el("div", "order-details");
+  panel.hidden = !openOrders.has(order.id);
+
+  const meta = el("div", "details-meta");
+
+  const placed = el("span");
+  placed.append("Order placed: ", el("strong", "", formatDateTime(order.created_at)));
+
+  const deliverBy = el("span");
+  deliverBy.append("Deliver back by: ", el("strong", "", formatDateTime(order.delivery_time)));
+
+  meta.append(placed, deliverBy);
+  panel.appendChild(meta);
+
+  (order.request_items || []).forEach(function (item) {
+    panel.appendChild(buildItem(item));
+  });
+
+  return panel;
+}
+
 function buildOrderCard(order) {
+  const delivered = isDelivered(order);
   const step = getStep(order.status);
   const items = order.request_items || [];
-  const totalPieces = items.reduce(function (sum, item) {
+  const dates = statusDates(order);
+
+  const pieces = items.reduce(function (sum, item) {
     return sum + Number(item.quantity || 0);
   }, 0);
 
-  const card = el("article", "order-card");
-
-  const head = el("div", "order-head");
-  head.append(
-    headerBlock("Order placed", formatDate(order.created_at)),
-    headerBlock("Deliver back by", formatDateTime(order.delivery_time)),
-    headerBlock("Pieces", String(totalPieces))
-  );
-
-  const idBlock = el("div", "order-head-block order-head-id");
-  idBlock.append(
-    el("span", "order-head-label", "Order #"),
-    el("span", "order-head-value", order.id.slice(0, 8).toUpperCase())
-  );
-  head.appendChild(idBlock);
-
-  const body = el("div", "order-body");
-
-  const statusBox = el("div", "order-status");
-  statusBox.appendChild(
-    el(
-      "h3",
-      "order-headline " + (isDelivered(order) ? "is-delivered" : "is-active"),
-      step ? step.headline : order.status
+  const names = Array.from(
+    new Set(
+      items.map(function (item) {
+        return splitCategory(item.category).name;
+      })
     )
-  );
+  ).join(", ");
 
-  if (step) {
-    statusBox.appendChild(el("p", "order-subtext", step.text));
+  const card = el("article", "order-card " + (delivered ? "is-delivered" : "is-active"));
+
+  const top = el("div", "order-top");
+  const titleBox = el("div");
+  titleBox.append(
+    el("h3", "order-title", "Order #" + orderLabel(order)),
+    el("p", "order-booked", "Booked on " + formatDay(order.created_at))
+  );
+  top.append(titleBox, el("span", "badge badge-" + order.status, step ? step.badge : order.status));
+
+  const bottom = el("div", "order-bottom");
+
+  const itemsCell = el("div", "bottom-cell cell-items");
+  const itemsText = el("div", "cell-text");
+  itemsText.append(
+    el("div", "cell-title", pieces + (pieces === 1 ? " item" : " items")),
+    el("div", "cell-sub names", names)
+  );
+  itemsCell.append(icon("shirt", "cell-icon"), itemsText);
+
+  const dateCell = el("div", "bottom-cell cell-date");
+  const dateText = el("div", "cell-text");
+  dateText.append(
+    el("div", "cell-sub", delivered ? "Delivered on" : "Estimated delivery"),
+    el("div", "cell-title", formatDay(delivered ? dates.delivered || order.delivery_time : order.delivery_time))
+  );
+  dateCell.append(icon("calendar", "cell-icon"), dateText);
+
+  const amountCell = el("div", "bottom-cell cell-amount");
+  if (order.total_amount !== null && order.total_amount !== undefined) {
+    amountCell.appendChild(el("div", "amount", "₹" + Number(order.total_amount).toLocaleString("en-IN")));
+  } else {
+    amountCell.appendChild(el("div", "amount-note", "Price shared after cleaning"));
   }
 
-  body.append(statusBox, buildTracker(order.status));
+  const buttonCell = el("div", "bottom-cell cell-button");
+  const detailsButton = el("button", "details-btn" + (openOrders.has(order.id) ? " open" : ""));
+  detailsButton.type = "button";
 
-  const itemsBox = el("div", "order-items");
-  itemsBox.appendChild(el("h4", "order-items-title", "Items in this order"));
+  const buttonLabel = el("span", "", openOrders.has(order.id) ? "Hide details" : "View details");
+  detailsButton.append(buttonLabel, icon("arrow", "arrow-icon"));
+  buttonCell.appendChild(detailsButton);
 
-  items.forEach(function (item) {
-    itemsBox.appendChild(buildItem(item, order));
+  bottom.append(itemsCell, dateCell, amountCell, buttonCell);
+
+  const details = buildDetails(order);
+
+  detailsButton.addEventListener("click", function () {
+    details.hidden = !details.hidden;
+    detailsButton.classList.toggle("open", !details.hidden);
+    buttonLabel.textContent = details.hidden ? "View details" : "Hide details";
+
+    if (details.hidden) openOrders.delete(order.id);
+    else openOrders.add(order.id);
   });
 
-  body.appendChild(itemsBox);
-
-  card.append(head, body);
+  card.append(top, buildSteps(order), bottom, details);
   return card;
 }
 
-function countFor(filter) {
-  return allOrders.filter(function (order) {
-    if (filter === "delivered") return isDelivered(order);
-    if (filter === "active") return !isDelivered(order);
-    return true;
+function updateSummary() {
+  const active = allOrders.filter(function (order) {
+    return !isDelivered(order);
   }).length;
-}
 
-function buildFilterBar() {
-  const bar = el("div", "order-filters");
+  const completed = allOrders.length - active;
 
-  [
-    { key: "all", label: "All orders" },
-    { key: "active", label: "In progress" },
-    { key: "delivered", label: "Delivered" },
-  ].forEach(function (filter) {
-    const button = el("button", "filter-pill", filter.label + " (" + countFor(filter.key) + ")");
-    button.type = "button";
+  if (active === 0) {
+    summaryTitle.textContent = "No active orders";
+  } else {
+    summaryTitle.textContent = active + (active === 1 ? " active order" : " active orders");
+  }
 
-    if (filter.key === activeFilter) button.classList.add("active");
+  summarySub.textContent =
+    allOrders.length === 0
+      ? "Place your first pickup to get started."
+      : "Keep track of every pickup and delivery.";
 
-    button.addEventListener("click", function () {
-      activeFilter = filter.key;
-      render();
-    });
-
-    bar.appendChild(button);
-  });
-
-  return bar;
+  countActive.textContent = String(active);
+  countCompleted.textContent = String(completed);
 }
 
 function buildEmptyState(text, showButton) {
@@ -319,7 +378,7 @@ function buildEmptyState(text, showButton) {
 
   if (showButton) {
     const link = el("a", "button-link", "Request a pickup");
-    link.href = HOME_PAGE;
+    link.href = PICKUP_PAGE;
     box.appendChild(link);
   }
 
@@ -327,21 +386,26 @@ function buildEmptyState(text, showButton) {
 }
 
 function render() {
+  updateSummary();
   ordersMessage.hidden = true;
   ordersList.innerHTML = "";
 
-  if (filterBar) filterBar.remove();
-  filterBar = buildFilterBar();
-  ordersList.before(filterBar);
+  if (allOrders.length === 0) {
+    ordersList.appendChild(buildEmptyState("No orders yet. Your orders will appear here.", true));
+    return;
+  }
+
+  const filter = filterSelect.value;
+  const query = searchInput.value.trim().toUpperCase().replace("#", "");
 
   const visible = allOrders.filter(function (order) {
-    if (activeFilter === "delivered") return isDelivered(order);
-    if (activeFilter === "active") return !isDelivered(order);
-    return true;
+    if (filter === "active" && isDelivered(order)) return false;
+    if (filter === "completed" && !isDelivered(order)) return false;
+    return query === "" || orderLabel(order).includes(query);
   });
 
   if (visible.length === 0) {
-    ordersList.appendChild(buildEmptyState("No orders in this list.", false));
+    ordersList.appendChild(buildEmptyState("No orders match your search.", false));
     return;
   }
 
@@ -381,31 +445,78 @@ async function signPhotos(orders) {
   return map;
 }
 
-function watchOrders(userId) {
+async function loadData() {
+  const { data, error } = await db
+    .from("pickup_requests")
+    .select(
+      "id, order_no, status, created_at, delivery_time, total_amount, request_items(category, quantity, photo_paths), order_status_history(status, changed_at)"
+    )
+    .eq("user_id", currentUserId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  allOrders = data || [];
+  photoUrls = await signPhotos(allOrders);
+}
+
+async function refreshOrders() {
+  try {
+    await loadData();
+    render();
+  } catch (error) {
+    console.log("Refresh failed:", error.message);
+  }
+}
+
+function scheduleRefresh() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(refreshOrders, REFRESH_DELAY);
+}
+
+function watchOrders() {
   db.channel("my-orders")
     .on(
       "postgres_changes",
       {
-        event: "UPDATE",
+        event: "*",
         schema: "public",
         table: "pickup_requests",
-        filter: "user_id=eq." + userId,
+        filter: "user_id=eq." + currentUserId,
       },
-      function (payload) {
-        const changed = allOrders.find(function (order) {
-          return order.id === payload.new.id;
-        });
-
-        if (!changed) return;
-
-        changed.status = payload.new.status;
-        render();
-      }
+      scheduleRefresh
     )
     .subscribe();
 }
 
-async function loadOrders() {
+document.querySelectorAll("[data-account-toggle]").forEach(function (button) {
+  button.addEventListener("click", function () {
+    accountMenu.hidden = !accountMenu.hidden;
+  });
+});
+
+document.addEventListener("click", function (event) {
+  if (accountMenu.hidden) return;
+  if (event.target.closest("[data-account-toggle]") || event.target.closest("#account-menu")) return;
+  accountMenu.hidden = true;
+});
+
+document.querySelectorAll("[data-filter]").forEach(function (button) {
+  button.addEventListener("click", function () {
+    filterSelect.value = button.dataset.filter;
+    render();
+  });
+});
+
+filterSelect.addEventListener("change", render);
+searchInput.addEventListener("input", render);
+
+logoutButton.addEventListener("click", async function () {
+  await db.auth.signOut();
+  window.location.href = LOGIN_PAGE;
+});
+
+async function start() {
   const { data: sessionData } = await db.auth.getSession();
 
   if (!sessionData.session) {
@@ -413,40 +524,23 @@ async function loadOrders() {
     return;
   }
 
-  const userId = sessionData.session.user.id;
+  currentUserId = sessionData.session.user.id;
+  accountEmail.textContent = sessionData.session.user.email || "";
 
-  const { data, error } = await db
-    .from("pickup_requests")
-    .select("id, status, created_at, delivery_time, request_items(category, quantity, photo_paths)")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-
-  if (error) {
+  try {
+    await loadData();
+  } catch (error) {
     console.log("Loading orders failed:", error.message);
     ordersMessage.textContent = "Sorry, we could not load your orders. Please refresh the page.";
     ordersMessage.hidden = false;
     return;
   }
 
-  if (!data || data.length === 0) {
-    ordersMessage.hidden = true;
-    ordersList.innerHTML = "";
-    ordersList.appendChild(buildEmptyState("No orders yet. Your orders will appear here.", true));
-    return;
-  }
-
-  allOrders = data;
-  photoUrls = await signPhotos(data);
   render();
-  watchOrders(userId);
+  watchOrders();
 }
 
-logoutButton.addEventListener("click", async function () {
-  await db.auth.signOut();
-  window.location.href = LOGIN_PAGE;
-});
-
-loadOrders().catch(function (error) {
+start().catch(function (error) {
   console.log("Orders page failed:", error.message);
   ordersMessage.textContent = "Sorry, something went wrong. Please refresh the page.";
   ordersMessage.hidden = false;
