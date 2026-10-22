@@ -9,8 +9,7 @@ const PHOTO_BUCKET = "request-photos";
 const PHOTO_LINK_SECONDS = 3600;
 const REFRESH_DELAY = 900;
 
-// Your UPI ID for online payments, for example "supercare@okhdfcbank".
-// Customers will pay to this ID. While it is not filled in, only Cash on delivery is offered.
+// Constants for UPI payments and order status
 const UPI_ID = "PASTE_YOUR_UPI_ID_HERE";
 const UPI_NAME = "Super Care Dry Cleaners";
 const UPI_ENABLED = UPI_ID.indexOf("@") > 0;

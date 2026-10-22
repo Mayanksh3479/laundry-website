@@ -15,7 +15,7 @@ const ordersLink = document.getElementById("orders-link");
 
 let currentUser = null;
 
-// Shows the form to logged-in customers and a login message to everyone else
+// Logged-in customers see the booking form, everyone else sees a login prompt
 function updateLoginUI() {
   const loggedIn = currentUser !== null;
 
@@ -26,6 +26,7 @@ function updateLoginUI() {
   if (ordersLink) ordersLink.hidden = !loggedIn;
 }
 
+// Check once on page load, then keep the UI in sync on login/logout
 db.auth.getSession().then(function ({ data }) {
   currentUser = data.session ? data.session.user : null;
   updateLoginUI();
@@ -36,7 +37,7 @@ db.auth.onAuthStateChange(function (event, session) {
   updateLoginUI();
 });
 
-// Log out confirmation pop-up (asks first, in case of an accidental tap)
+// Log out confirmation pop-up, so an accidental tap doesn't sign the customer out
 const logoutDialog = document.createElement("dialog");
 logoutDialog.className = "logout-dialog";
 
@@ -69,6 +70,7 @@ logoutStayButton.addEventListener("click", function () {
   logoutDialog.close();
 });
 
+// Clicking the dark area outside the box closes it too
 logoutDialog.addEventListener("click", function (event) {
   if (event.target === logoutDialog) logoutDialog.close();
 });
@@ -82,7 +84,7 @@ logoutConfirmButton.addEventListener("click", async function () {
     console.log("Sign out failed:", error.message);
   }
 
-  // Make sure the page switches back to the logged-out view
+  // Update the page ourselves in case the auth listener is slow to fire
   currentUser = null;
   updateLoginUI();
 
@@ -107,21 +109,21 @@ const OPEN_HOUR = 9;
 const CLOSE_HOUR = 20;
 const TIME_STEP_MINUTES = 30;
 
-// Photos are shrunk in the browser before they are uploaded
+// Photos are shrunk in the browser before upload to save storage and data
 const PHOTO_BUCKET = "request-photos";
 const MAX_PHOTO_SIDE = 1600;
 const PHOTO_QUALITY = 0.8;
 let nextPhotoInputId = 1;
 
-// Every real category, read once from the datalist in the HTML
+// Read the valid categories once from the datalist in index.html,
+// so the HTML stays the single source of truth
 const validCategories = Array.from(
   document.querySelectorAll("#category-list option")
 ).map(function (option) {
   return option.value;
 });
 
-// Reads a date typed as DD/MM/YYYY.
-// Returns { day, month, year }, or null if it is not a real date.
+// Reads a date typed as DD/MM/YYYY. Returns { day, month, year } or null
 function parseDate(dateText) {
   const match = dateText.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (!match) return null;
@@ -130,7 +132,8 @@ function parseDate(dateText) {
   const month = Number(match[2]);
   const year = Number(match[3]);
 
-  // Catches fake dates such as 31/02/2026
+  // The Date object rolls 31/02 over to March, so compare the parts back
+  // to catch fake dates
   const check = new Date(year, month - 1, day);
   if (
     check.getFullYear() !== year ||
@@ -143,8 +146,8 @@ function parseDate(dateText) {
   return { day, month, year };
 }
 
-// Reads a time such as "6:30 PM", "6 PM", "09:00" or "18".
-// Returns { hour, minute } in 24-hour form, or null if it is not a valid time.
+// Accepts "6:30 PM", "6 PM", "09:00" or "18" and returns { hour, minute }
+// in 24-hour form, or null if it isn't a valid time
 function parseTime(timeText) {
   const match = timeText
     .trim()
@@ -159,19 +162,18 @@ function parseTime(timeText) {
   if (minute > 59) return null;
 
   if (period) {
-    // 12-hour clock: the hour must be 1 to 12
+    // 12-hour clock: 12 AM is hour 0, 12 PM stays 12
     if (hour < 1 || hour > 12) return null;
     if (hour === 12) hour = 0;
     if (period === "pm") hour += 12;
   } else if (hour > 23) {
-    // 24-hour clock: the hour must be 0 to 23
     return null;
   }
 
   return { hour, minute };
 }
 
-// Fills the time dropdown with 9:00 AM, 9:30 AM ... 8:00 PM
+// Builds the time dropdown: 9:00 AM, 9:30 AM ... 8:00 PM
 function fillTimeOptions() {
   timeInput.innerHTML = '<option value="">Select a time</option>';
 
@@ -193,13 +195,13 @@ function fillTimeOptions() {
   }
 }
 
-// Only a dropdown needs filling. A typed time box works as it is.
+// Only a <select> needs filling; a plain text box works as it is
 if (timeInput && timeInput.tagName === "SELECT") {
   fillTimeOptions();
 }
 
-// Shrinks a photo to at most MAX_PHOTO_SIDE pixels on its longest side
-// and returns it as a JPEG file (usually a few hundred KB instead of several MB)
+// Scales a photo down to MAX_PHOTO_SIDE on its longest side and returns a JPEG.
+// Phone photos are several MB, this brings them down to a few hundred KB
 async function compressPhoto(file) {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
@@ -222,7 +224,7 @@ async function compressPhoto(file) {
   });
 }
 
-// Uploads every photo and returns the storage paths, one list per item,
+// Uploads all photos one by one and returns the storage paths, one list per item,
 // e.g. [["<id>/item1-photo1.jpg", "<id>/item1-photo2.jpg"], ["<id>/item2-photo1.jpg"]]
 async function uploadPhotos(requestId, items) {
   const allPaths = [];
@@ -248,7 +250,7 @@ async function uploadPhotos(requestId, items) {
   return allPaths;
 }
 
-// Frees the preview of one photo slot and hides it again
+// Releases the preview image of one photo slot and hides it again
 function clearPreview(previewButton) {
   const oldUrl = previewButton.dataset.previewUrl;
 
@@ -259,7 +261,7 @@ function clearPreview(previewButton) {
   previewButton.hidden = true;
 }
 
-// Text above a photo slot, e.g. "Item 2 (Gents - Shirt) — Photo 1"
+// Label shown above a photo slot, e.g. "Item 2 (Gents - Shirt) — Photo 1"
 function photoCaption(row, itemNumber, photoNumber) {
   const category = row.querySelector('[name="item_category"]').value.trim();
   const name = validCategories.includes(category) ? ` (${category})` : "";
@@ -275,6 +277,7 @@ function createPhotoSlot(itemNumber, photoNumber) {
   caption.className = "photo-number";
   caption.textContent = `Item ${itemNumber} — Photo ${photoNumber}`;
 
+  // Each file input needs a unique id so its label points to the right one
   const inputId = `item-photo-${nextPhotoInputId++}`;
 
   const label = document.createElement("label");
@@ -288,7 +291,7 @@ function createPhotoSlot(itemNumber, photoNumber) {
   input.accept = "image/*";
   input.required = true;
 
-  // The thumbnail stays hidden until a photo is chosen
+  // Thumbnail stays hidden until a photo is chosen
   const previewButton = document.createElement("button");
   previewButton.type = "button";
   previewButton.className = "photo-preview";
@@ -306,6 +309,7 @@ function createPhotoSlot(itemNumber, photoNumber) {
   return slot;
 }
 
+// Keeps one row in sync: item title, and one photo slot per quantity
 function updatePhotoSlots(row, itemNumber) {
   const quantityInput = row.querySelector('[name="item_quantity"]');
   const slots = row.querySelector(".photo-slots");
@@ -322,6 +326,7 @@ function updatePhotoSlots(row, itemNumber) {
   }
   itemTitle.textContent = `Item ${itemNumber}`;
 
+  // Ignore half-typed or out-of-range quantities, the submit check catches them
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) {
     return;
   }
@@ -350,6 +355,7 @@ function updatePhotoSlots(row, itemNumber) {
   });
 }
 
+// Re-number every row, needed after adding or removing one
 function updateAllPhotoSlots() {
   const rows = itemsContainer.querySelectorAll(".item-row");
 
@@ -358,7 +364,7 @@ function updateAllPhotoSlots() {
   });
 }
 
-// After a successful send: back to one empty row with one empty photo slot
+// After a successful send: back to a single empty row
 function resetItemRows() {
   const rows = itemsContainer.querySelectorAll(".item-row");
 
@@ -371,7 +377,7 @@ function resetItemRows() {
   updateAllPhotoSlots();
 }
 
-// Create a lightbox for viewing selected photos.
+// Lightbox for viewing a selected photo full size
 const lightbox = document.createElement("dialog");
 lightbox.className = "photo-lightbox";
 lightbox.style.border = "0";
@@ -405,7 +411,8 @@ lightbox.addEventListener("click", function (event) {
   if (event.target === lightbox) lightbox.close();
 });
 
-// Show a thumbnail after a photo is selected.
+// One listener on the container covers every photo input, including
+// the ones added later when the quantity or row count changes
 itemsContainer.addEventListener("change", function (event) {
   const input = event.target;
   if (input.name !== "item_photo") return;
@@ -413,7 +420,7 @@ itemsContainer.addEventListener("change", function (event) {
   const slot = input.closest(".photo-slot");
   const previewButton = slot.querySelector(".photo-preview");
 
-  // Start clean: this also handles the customer cancelling the file picker
+  // Start clean, this also covers the customer cancelling the file picker
   clearPreview(previewButton);
 
   const file = input.files[0];
@@ -431,7 +438,7 @@ itemsContainer.addEventListener("change", function (event) {
   previewButton.hidden = false;
 });
 
-// Open the selected photo when its thumbnail is clicked.
+// Clicking a thumbnail opens it in the lightbox
 itemsContainer.addEventListener("click", function (event) {
   const previewButton = event.target.closest(".photo-preview");
   if (!previewButton) return;
@@ -442,6 +449,7 @@ itemsContainer.addEventListener("click", function (event) {
 
 updateAllPhotoSlots();
 
+// Copy the first row as a template for a new one, then clear its values
 addButton.addEventListener("click", function () {
   const firstRow = itemsContainer.querySelector(".item-row");
   const newRow = firstRow.cloneNode(true);
@@ -459,10 +467,11 @@ itemsContainer.addEventListener("click", function (event) {
 
   const rows = itemsContainer.querySelectorAll(".item-row");
 
+  // Always keep at least one row
   if (rows.length > 1) {
     const row = event.target.closest(".item-row");
 
-    // Free the memory used by this row's photo previews
+    // Free the memory used by this row's previews
     row.querySelectorAll(".photo-preview").forEach(function (previewButton) {
       clearPreview(previewButton);
     });
@@ -472,7 +481,7 @@ itemsContainer.addEventListener("click", function (event) {
   }
 });
 
-// Quantity or category changed -> refresh the photo slots and their captions
+// Quantity or category changed, so refresh the photo slots and their captions
 itemsContainer.addEventListener("input", function (event) {
   if (
     event.target.name === "item_quantity" ||
@@ -487,6 +496,7 @@ dateInput.addEventListener("input", function (event) {
   const raw = dateInput.value;
   const digits = raw.replace(/\D/g, "").slice(0, 8);
 
+  // When deleting, don't re-add a slash the customer just removed
   const deleting = !!event.inputType && event.inputType.startsWith("delete");
   const keepSlash = !deleting || raw.endsWith("/");
 
@@ -595,7 +605,8 @@ form.addEventListener("submit", async function (event) {
   submitButton.disabled = true;
   submitButton.textContent = "Sending...";
 
-  // The browser makes the id itself, so photos and items can be attached to it
+  // Generate the id here so photos and items can be linked to it
+  // before the request row exists
   const requestId = crypto.randomUUID();
 
   try {
@@ -627,6 +638,7 @@ form.addEventListener("submit", async function (event) {
     console.log("Sending failed:", error.message);
     alert("Sorry, we could not send your request. Please try again.");
   } finally {
+    // Always give the button back, whether it worked or not
     submitButton.disabled = false;
     submitButton.textContent = submitLabel;
   }
