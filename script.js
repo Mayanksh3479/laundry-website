@@ -1,10 +1,6 @@
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
 
-// =====================================================================
-// script.js: the customer side of the site (Request a Pickup form)
-// =====================================================================E";
-
 // I create one Supabase client and use it for everything on this page
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -55,6 +51,8 @@ db.auth.onAuthStateChange(function (event, session) {
 // Log out confirmation pop-up
 // I ask first so an accidental tap doesn't sign the customer out
 // ---------------------------------------------------------------------
+
+// I build the pop-up as a <dialog> element
 const logoutDialog = document.createElement("dialog");
 logoutDialog.className = "logout-dialog";
 
@@ -83,6 +81,86 @@ logoutDialogActions.append(logoutStayButton, logoutConfirmButton);
 logoutDialog.append(logoutDialogTitle, logoutDialogText, logoutDialogActions);
 document.body.appendChild(logoutDialog);
 
+// I inject the pop-up's styles from here so they always load, even if
+// home.css is cached or missing the rules. This makes the Home pop-up
+// look the same as the one on the Orders page.
+const logoutStyle = document.createElement("style");
+logoutStyle.textContent = `
+  .logout-dialog {
+    border: none;
+    border-radius: 16px;
+    padding: 28px 30px;
+    width: calc(100% - 40px);
+    max-width: 475px;
+    background: #ffffff;
+    color: #0f172a;
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+  }
+
+  .logout-dialog::backdrop {
+    background: rgba(15, 23, 42, 0.5);
+  }
+
+  .logout-dialog .logout-dialog-title {
+    margin: 0 0 8px;
+    font-size: 24px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .logout-dialog .logout-dialog-text {
+    margin: 0 0 22px;
+    font-size: 18px;
+    line-height: 1.5;
+    color: #334155;
+  }
+
+  .logout-dialog .logout-dialog-actions {
+    display: flex;
+    gap: 14px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .logout-dialog .logout-dialog-actions button {
+    margin: 0;
+    padding: 12px 22px;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+
+  .logout-dialog .logout-stay {
+    background: #eceff3;
+    color: #0f172a;
+  }
+
+  .logout-dialog .logout-stay:hover {
+    background: #dfe4ea;
+  }
+
+  .logout-dialog .logout-confirm {
+    background: #b91c1c;
+    color: #ffffff;
+  }
+
+  .logout-dialog .logout-confirm:hover {
+    background: #991b1b;
+  }
+
+  .logout-dialog .logout-dialog-actions button:focus-visible {
+    outline: 3px solid #93c5fd;
+    outline-offset: 2px;
+  }
+`;
+document.head.appendChild(logoutStyle);
+
+// "Stay logged in" just closes the pop-up
 logoutStayButton.addEventListener("click", function () {
   logoutDialog.close();
 });
@@ -92,6 +170,7 @@ logoutDialog.addEventListener("click", function (event) {
   if (event.target === logoutDialog) logoutDialog.close();
 });
 
+// "Yes, log out" signs the customer out
 logoutConfirmButton.addEventListener("click", async function () {
   logoutConfirmButton.disabled = true;
 
@@ -109,6 +188,7 @@ logoutConfirmButton.addEventListener("click", async function () {
   logoutDialog.close();
 });
 
+// Clicking the "Log out" button in the header opens the pop-up
 logoutButton.addEventListener("click", function () {
   logoutDialog.showModal();
 });
