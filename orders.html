@@ -7,7 +7,7 @@
     <title>My Orders | Super Care Dry Cleaners</title>
 
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="order.css">
+    <link rel="stylesheet" href="orders.css">
 </head>
 
 <body>
@@ -15,14 +15,21 @@
 
     <button type="button" id="logout-btn" class="login-btn">Log out</button>
 
-    <nav class="top-nav">
-        <a href="index.html" class="button-link">Back to home</a>
-    </nav>
+    <div class="page-header">
+        <div class="page-header-inner">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="index.html">Home</a>
+                <span>/</span>
+                <span>My Orders</span>
+            </nav>
+
+            <h2 class="page-title">My Orders</h2>
+            <p class="page-subtitle">Track your pickups, cleaning progress and deliveries.</p>
+        </div>
+    </div>
 
     <main>
         <section>
-            <h2>My Orders</h2>
-
             <p id="orders-message" hidden></p>
 
             <div id="orders-list"></div>

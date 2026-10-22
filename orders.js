@@ -2,6 +2,8 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const LOGIN_PAGE = "login.html";
 const HOME_PAGE = "index.html";
+const PHOTO_BUCKET = "request-photos";
+const PHOTO_LINK_SECONDS = 3600;
 
 const ordersList = document.getElementById("orders-list");
 const ordersMessage = document.getElementById("orders-message");
@@ -41,8 +43,37 @@ const STATUS_STEPS = [
 ];
 
 let allOrders = [];
+let photoUrls = {};
 let activeFilter = "all";
 let filterBar = null;
+
+const lightbox = document.createElement("dialog");
+lightbox.className = "photo-lightbox";
+
+const lightboxClose = document.createElement("button");
+lightboxClose.type = "button";
+lightboxClose.className = "lightbox-close";
+lightboxClose.textContent = "Close";
+
+const lightboxImage = document.createElement("img");
+lightboxImage.className = "lightbox-image";
+lightboxImage.alt = "Selected photo";
+
+lightbox.append(lightboxClose, lightboxImage);
+document.body.appendChild(lightbox);
+
+lightboxClose.addEventListener("click", function () {
+  lightbox.close();
+});
+
+lightbox.addEventListener("click", function (event) {
+  if (event.target === lightbox) lightbox.close();
+});
+
+function openPhoto(url) {
+  lightboxImage.src = url;
+  lightbox.showModal();
+}
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -124,23 +155,72 @@ function buildTracker(status) {
   return tracker;
 }
 
-function buildItem(item) {
+function buildPhotoButton(url, className, altText) {
+  const button = el("button", className);
+  button.type = "button";
+  button.setAttribute("aria-label", "View photo");
+
+  const image = el("img");
+  image.src = url;
+  image.alt = altText;
+  image.loading = "lazy";
+
+  button.appendChild(image);
+
+  button.addEventListener("click", function () {
+    openPhoto(url);
+  });
+
+  return button;
+}
+
+function buildItem(item, order) {
   const parts = splitCategory(item.category);
+  const urls = (item.photo_paths || [])
+    .map(function (path) {
+      return photoUrls[path];
+    })
+    .filter(Boolean);
 
   const row = el("div", "order-item");
 
-  const avatar = el("div", "item-avatar", parts.name.charAt(0).toUpperCase());
-
-  const info = el("div", "item-info");
-  info.appendChild(el("div", "item-name", parts.name));
-
-  if (parts.group) {
-    info.appendChild(el("div", "item-group", parts.group));
+  if (urls.length > 0) {
+    row.appendChild(buildPhotoButton(urls[0], "item-photo", parts.name));
+  } else {
+    row.appendChild(el("div", "item-photo-empty", parts.name.charAt(0).toUpperCase()));
   }
 
-  const qty = el("div", "item-qty", "Qty: " + item.quantity);
+  const details = el("div", "item-details");
+  details.appendChild(el("div", "item-name", parts.name));
 
-  row.append(avatar, info, qty);
+  if (parts.group) {
+    details.appendChild(el("div", "item-group", parts.group));
+  }
+
+  details.appendChild(el("div", "item-qty", "Qty: " + item.quantity));
+
+  if (urls.length > 1) {
+    const extra = el("div", "item-extra");
+
+    urls.slice(1).forEach(function (url, index) {
+      extra.appendChild(buildPhotoButton(url, "item-thumb", parts.name + " photo " + (index + 2)));
+    });
+
+    details.appendChild(extra);
+  }
+
+  const step = getStep(order.status);
+  const side = el("div", "item-side");
+  side.appendChild(
+    el(
+      "span",
+      "status-pill " + (isDelivered(order) ? "pill-delivered" : "pill-active"),
+      step ? step.headline : order.status
+    )
+  );
+  side.appendChild(el("div", "item-side-text", "Deliver by " + formatDateTime(order.delivery_time)));
+
+  row.append(details, side);
   return row;
 }
 
@@ -170,12 +250,13 @@ function buildOrderCard(order) {
   const body = el("div", "order-body");
 
   const statusBox = el("div", "order-status");
-  const headline = el(
-    "h3",
-    "order-headline " + (isDelivered(order) ? "is-delivered" : "is-active"),
-    step ? step.headline : order.status
+  statusBox.appendChild(
+    el(
+      "h3",
+      "order-headline " + (isDelivered(order) ? "is-delivered" : "is-active"),
+      step ? step.headline : order.status
+    )
   );
-  statusBox.appendChild(headline);
 
   if (step) {
     statusBox.appendChild(el("p", "order-subtext", step.text));
@@ -187,7 +268,7 @@ function buildOrderCard(order) {
   itemsBox.appendChild(el("h4", "order-items-title", "Items in this order"));
 
   items.forEach(function (item) {
-    itemsBox.appendChild(buildItem(item));
+    itemsBox.appendChild(buildItem(item, order));
   });
 
   body.appendChild(itemsBox);
@@ -214,7 +295,6 @@ function buildFilterBar() {
   ].forEach(function (filter) {
     const button = el("button", "filter-pill", filter.label + " (" + countFor(filter.key) + ")");
     button.type = "button";
-    button.dataset.filter = filter.key;
 
     if (filter.key === activeFilter) button.classList.add("active");
 
@@ -267,6 +347,37 @@ function render() {
   });
 }
 
+async function signPhotos(orders) {
+  const paths = [];
+
+  orders.forEach(function (order) {
+    (order.request_items || []).forEach(function (item) {
+      (item.photo_paths || []).forEach(function (path) {
+        paths.push(path);
+      });
+    });
+  });
+
+  if (paths.length === 0) return {};
+
+  const { data, error } = await db.storage
+    .from(PHOTO_BUCKET)
+    .createSignedUrls(paths, PHOTO_LINK_SECONDS);
+
+  if (error || !data) {
+    console.log("Photo links failed:", error ? error.message : "no data");
+    return {};
+  }
+
+  const map = {};
+
+  data.forEach(function (entry) {
+    if (entry.signedUrl) map[entry.path] = entry.signedUrl;
+  });
+
+  return map;
+}
+
 async function loadOrders() {
   const { data: sessionData } = await db.auth.getSession();
 
@@ -279,7 +390,7 @@ async function loadOrders() {
 
   const { data, error } = await db
     .from("pickup_requests")
-    .select("id, status, created_at, delivery_time, request_items(category, quantity)")
+    .select("id, status, created_at, delivery_time, request_items(category, quantity, photo_paths)")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
@@ -298,6 +409,7 @@ async function loadOrders() {
   }
 
   allOrders = data;
+  photoUrls = await signPhotos(data);
   render();
 }
 
