@@ -43,7 +43,7 @@ const REFRESH_DELAY = 900; // ms to wait before re-fetching after a live change
 // --------------------------------------------------------------------------
 // Put your real UPI ID here (e.g. "shopname@okhdfcbank").
 // While it is still the placeholder, the "Pay online (UPI)" button stays hidden.
-const UPI_ID = "supercaredrycleaners@okhdfcbank";
+const UPI_ID = "78304095644@axl";
 const UPI_NAME = "Super Care Dry Cleaners";
 const UPI_ENABLED = UPI_ID.indexOf("@") > 0;
 const PAYMENT_LABELS = { cod: "Cash on delivery", upi: "UPI" };
