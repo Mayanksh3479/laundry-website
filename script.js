@@ -292,9 +292,9 @@ function locationErrorText(error) {
 // ---------------------------------------------------------------------
 // Pickup address (like Amazon and Flipkart)
 // The customer can type the address, or tap "Use my current location"
-// to fill the street and area in. Either way they can edit every box.
-// The pincode is always typed by the customer, and I use it to fill in
-// the city and state (see "Pincode lookup" below).
+// to fill the area, city, state and pincode in. Either way they can edit
+// every box. If they type a pincode themselves, I fill in the city and
+// state from it (see "Pincode lookup" below).
 // ---------------------------------------------------------------------
 
 // I remember the GPS position here after the customer taps the button.
@@ -315,8 +315,9 @@ function clearPinnedLocation() {
 
 // ---------------------------------------------------------------------
 // Pincode lookup
-// OpenStreetMap's pincodes are often wrong in India, so I never use them.
-// I ask India Post instead, which is the official source for pincodes.
+// India Post is the official source for pincodes. I use it to fill in the
+// city and state when the customer types a pincode, and to double-check
+// a pincode that came from the location lookup.
 // ---------------------------------------------------------------------
 
 // I ask India Post which district and state a pincode belongs to.
@@ -369,60 +370,54 @@ addrPincode.addEventListener("input", async function () {
   }
 });
 
-// I turn a GPS position into a street address using OpenStreetMap's free
-// lookup service. It is not perfect in every area, so I only use it to
-// pre-fill the area box; the customer checks and edits it.
+// I turn a GPS position into a street address using Ola Maps. The Ola Maps
+// key is a secret, so I never call Ola from the browser. I ask my own
+// Supabase function ("reverse-geocode") instead; it holds the key, calls
+// Ola for me and sends back the address parts.
 // I return the address parts, or null if the lookup failed.
 async function lookupAddress(latitude, longitude) {
-  const controller = new AbortController();
-  const timer = setTimeout(function () {
-    controller.abort();
-  }, 8000); // I give up after 8 seconds
-
   try {
-    const url =
-      "https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&accept-language=en" +
-      "&lat=" +
-      encodeURIComponent(latitude) +
-      "&lon=" +
-      encodeURIComponent(longitude);
-
-    const response = await fetch(url, {
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
+    // I give up after 10 seconds
+    const timeout = new Promise(function (resolve, reject) {
+      setTimeout(function () {
+        reject(new Error("The address lookup took too long"));
+      }, 10000);
     });
 
-    if (!response.ok) return null;
+    const request = db.functions.invoke("reverse-geocode", {
+      body: { latitude: latitude, longitude: longitude },
+    });
 
-    const data = await response.json();
+    const { data, error } = await Promise.race([request, timeout]);
+    if (error) throw error;
 
-    // I log the raw answer so I can check what OpenStreetMap sent back
-    console.log("OpenStreetMap address:", data.address);
+    // I log the raw answer so I can check what Ola Maps sent back
+    console.log("Ola Maps answer:", data);
 
-    return data.address || null;
+    return data && data.address ? data.address : null;
   } catch (error) {
     console.log("Address lookup failed:", error.message);
     return null;
-  } finally {
-    clearTimeout(timer);
   }
 }
 
-// I pick the useful part out of the lookup result.
-// I only read the street and area. I skip the pincode and city on purpose,
-// because OpenStreetMap often gets them wrong in India.
+// I clean up the parts that came back, so a missing or odd value
+// never breaks the form
 function readFoundAddress(found) {
   return {
-    area: [found.road, found.neighbourhood || found.suburb || found.city_district]
-      .filter(Boolean)
-      .join(", "),
+    area: String(found.area || "").trim(),
+    city: String(found.city || "").trim(),
+    state: String(found.state || "").trim(),
+    pincode: String(found.pincode || "").replace(/\D/g, "").slice(0, 6),
   };
 }
 
 // When the customer taps "Use my current location":
 // 1. I ask the browser for the position (the permission pop-up appears here)
 // 2. I look up the street address for that position
-// 3. I fill the area box, and the customer adds the pincode and house number
+// 3. I fill the area, city, state and pincode boxes
+// 4. I double-check the pincode with India Post
+// The customer then checks the boxes and adds the house number.
 locateButton.addEventListener("click", async function () {
   locateButton.disabled = true;
   setLocateStatus("Getting your location...", "");
@@ -460,20 +455,43 @@ locateButton.addEventListener("click", async function () {
     return;
   }
 
-  // Step 3: I fill the area box. I never touch the house number or landmark,
-  // because only the customer knows those. I also leave the pincode alone:
-  // the customer types it, and then the city and state fill in from India Post.
+  // Step 3: I fill the boxes I can. I never touch the house number or landmark,
+  // because only the customer knows those.
   const address = readFoundAddress(found);
   if (address.area) addrArea.value = address.area;
+  if (address.city) addrCity.value = address.city;
+  if (address.state) addrState.value = address.state;
+  if (address.pincode) addrPincode.value = address.pincode;
 
-  setLocateStatus(
-    "Location captured (about " + metres + " m). Please enter your pincode and add your house or flat number.",
-    "ok"
-  );
+  // Step 4: I ask India Post if the pincode is real and in the same state.
+  // If something looks off, I tell the customer to check it.
+  let message =
+    "Location captured (about " + metres + " m). Please check the address below and add your house or flat number.";
+  let kind = "ok";
+
+  if (!address.pincode) {
+    message =
+      "Location captured (about " + metres + " m). Please enter your pincode and add your house or flat number.";
+    addrPincode.focus();
+  } else {
+    const info = await lookupPincode(address.pincode);
+
+    if (!info) {
+      message += " We could not confirm the pincode, so please check it.";
+      kind = "error";
+    } else if (address.state) {
+      const foundState = address.state.toLowerCase();
+      const postState = info.state.toLowerCase();
+
+      if (!foundState.includes(postState) && !postState.includes(foundState)) {
+        message += " The pincode and state do not match, so please check them.";
+        kind = "error";
+      }
+    }
+  }
+
+  setLocateStatus(message, kind);
   locateButton.disabled = false;
-
-  // I take the customer straight to the pincode box
-  addrPincode.focus();
 });
 
 // I read and check the address boxes. I return the address, or null if
