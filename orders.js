@@ -43,7 +43,7 @@ const REFRESH_DELAY = 900; // ms to wait before re-fetching after a live change
 // --------------------------------------------------------------------------
 // Put your real UPI ID here (e.g. "shopname@okhdfcbank").
 // While it is still the placeholder, the "Pay online (UPI)" button stays hidden.
-const UPI_ID = "844969820999@axl";
+const UPI_ID = "supercaredrycleaners@okhdfcbank";
 const UPI_NAME = "Super Care Dry Cleaners";
 const UPI_ENABLED = UPI_ID.indexOf("@") > 0;
 const PAYMENT_LABELS = { cod: "Cash on delivery", upi: "UPI" };
@@ -609,6 +609,12 @@ function updateDue() {
 // Payments
 // ==========================================================================
 
+// True on phones/tablets. UPI apps only exist there, so the upi:// link
+// does nothing on a Windows/Mac computer.
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 // Builds the UPI deep link that opens Google Pay, Paytm, PhonePe or any UPI app
 function upiLink(order) {
   return (
@@ -737,6 +743,14 @@ function buildPaymentPanel(order) {
 
   const openLink = el("a", "pay-upi-btn", "Open UPI app");
   openLink.href = upiLink(order);
+
+  // On a computer there is no UPI app, so explain instead of doing nothing
+  openLink.addEventListener("click", function (event) {
+    if (!isMobileDevice()) {
+      event.preventDefault();
+      alert("UPI apps open only on a phone. Please copy the UPI ID and pay from your phone, or open this page on your phone.");
+    }
+  });
 
   const copyButton = el("button", "pay-secondary", "Copy UPI ID");
   copyButton.type = "button";
