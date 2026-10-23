@@ -629,7 +629,8 @@ main section {
 
 #admin-message[hidden],
 #admin-tools[hidden],
-.toast[hidden] {
+.toast[hidden],
+.map-frame[hidden] {
   display: none;
 }
 
@@ -763,7 +764,7 @@ main section {
 }
 
 /* ---------------------------------------------------------------------
-   Customer box: name, email, phone and location (new)
+   Customer box: name, email, phone and location
    --------------------------------------------------------------------- */
 
 /* I separate the box from the controls above it with a thin line */
@@ -783,7 +784,7 @@ main section {
 
 .customer-label {
   flex: none;
-  width: 70px;
+  width: 80px; /* wide enough for "Accuracy" and "Captured" */
   color: #565959;
 }
 
@@ -802,6 +803,42 @@ main section {
 
 .customer-link:hover {
   text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------
+   Map toggle and embedded map
+   --------------------------------------------------------------------- */
+.map-wrap {
+  margin-top: 10px;
+}
+
+/* I use the .map-toggle class so it beats the global blue "button" style */
+.map-toggle {
+  margin: 0;
+  padding: 8px 16px;
+  background: #eef3fa;
+  color: #1e5aa8;
+  border: 1px solid #b8c4d0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.map-toggle:hover {
+  background: #dfe9f6;
+}
+
+.map-frame {
+  margin-top: 10px;
+}
+
+.map-frame iframe {
+  display: block;
+  width: 100%;
+  height: 260px;
+  border: 1px solid #d5d9d9;
+  border-radius: 8px;
 }
 
 /* ---------------------------------------------------------------------

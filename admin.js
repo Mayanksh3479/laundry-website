@@ -1,10 +1,21 @@
-const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
-const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
 
 // =====================================================================
 // admin.js: the staff dashboard (orders, status, payment, customer info)
 // =====================================================================
 
+
+// =====================================================================
+// admin.js: the staff dashboard (admin.html)
+// =====================================================================
+
+// ---------------------------------------------------------------------
+// Supabase connection
+// IMPORTANT: put your real values here (the same ones you use in script.js).
+// I use the "anon" public key, never the service_role key.
+// ---------------------------------------------------------------------
+
+const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
+const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
 
 // I create one Supabase client and use it for everything on this page
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -15,6 +26,9 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const LOGIN_PAGE = "login.html";
 const PHOTO_BUCKET = "request-photos";
 const PHOTO_LINK_SECONDS = 3600; // I make photo links valid for one hour
+
+// If the GPS accuracy is worse than this (in metres), I warn staff
+const LOW_ACCURACY_METRES = 100;
 
 // The order statuses I let staff choose from, in the order they happen
 const STATUSES = [
@@ -375,7 +389,7 @@ async function changePaid(order, select) {
 }
 
 // ---------------------------------------------------------------------
-// Customer details and location (new)
+// Customer details and location
 // ---------------------------------------------------------------------
 
 // I build one "Label: value" line. The value can be plain text or an element.
@@ -405,6 +419,75 @@ function linkNode(text, href, newTab) {
   return link;
 }
 
+// I keep only the digits of a phone number, and only the last 10 of them.
+// This way "+91 98765 43210", "09876543210" and "9876543210" all dial correctly.
+function phoneDigits(raw) {
+  return String(raw || "")
+    .replace(/\D/g, "")
+    .slice(-10);
+}
+
+// I check that an order has a usable saved location
+function hasLocation(order) {
+  return (
+    order.latitude !== null &&
+    order.latitude !== undefined &&
+    order.longitude !== null &&
+    order.longitude !== undefined &&
+    Number.isFinite(Number(order.latitude)) &&
+    Number.isFinite(Number(order.longitude))
+  );
+}
+
+// I build the "Show map" button and the box that holds the map.
+// I only create the map when staff click, so a long list of orders
+// doesn't load dozens of maps at once.
+function buildMapToggle(lat, lng) {
+  const wrap = el("div", "map-wrap");
+
+  const button = el("button", "map-toggle", "Show map");
+  button.type = "button";
+
+  const frameBox = el("div", "map-frame");
+  frameBox.hidden = true;
+
+  button.addEventListener("click", function () {
+    // Hiding the map again
+    if (!frameBox.hidden) {
+      frameBox.hidden = true;
+      button.textContent = "Show map";
+      return;
+    }
+
+    // I build the map the first time only. I use an OpenStreetMap embed
+    // (no API key needed) with a pin on the exact spot.
+    if (!frameBox.firstChild) {
+      const spread = 0.003; // about 300 m around the pin
+      const bbox = [lng - spread, lat - spread, lng + spread, lat + spread].join(",");
+
+      const frame = el("iframe");
+      frame.src =
+        "https://www.openstreetmap.org/export/embed.html?bbox=" +
+        bbox +
+        "&layer=mapnik&marker=" +
+        lat +
+        "," +
+        lng;
+      frame.title = "Customer location map";
+      frame.loading = "lazy";
+      frame.referrerPolicy = "no-referrer";
+
+      frameBox.appendChild(frame);
+    }
+
+    frameBox.hidden = false;
+    button.textContent = "Hide map";
+  });
+
+  wrap.append(button, frameBox);
+  return wrap;
+}
+
 // I build the "Customer" box: name, email, phone and location
 function buildCustomerBox(order) {
   const box = el("div", "customer-box");
@@ -422,26 +505,50 @@ function buildCustomerBox(order) {
   );
 
   // Phone: I make it clickable so staff can tap to call.
-  // I saved the number as 10 digits, so I add +91 for the dialer.
+  // I show the number as saved, and dial the last 10 digits with +91.
+  const digits = phoneDigits(order.customer_phone);
   box.appendChild(
     detailLine(
       "Phone",
-      order.customer_phone ? linkNode(order.customer_phone, "tel:+91" + order.customer_phone) : "-"
+      order.customer_phone ? linkNode(order.customer_phone, "tel:+91" + digits) : "-"
     )
   );
 
-  // Location: if the customer shared it, I show a Google Maps link
-  if (order.latitude !== null && order.latitude !== undefined) {
-    const mapUrl = "https://www.google.com/maps?q=" + order.latitude + "," + order.longitude;
+  // Location: if the customer shared it, I show links, accuracy, time and a map
+  if (hasLocation(order)) {
+    const lat = Number(order.latitude);
+    const lng = Number(order.longitude);
 
-    // I show how accurate the GPS was, so staff know how far to trust the pin
-    const accuracy = order.location_accuracy_m
-      ? " (±" + Math.round(order.location_accuracy_m) + " m)"
-      : "";
+    const mapUrl = "https://www.google.com/maps?q=" + lat + "," + lng;
+    const directionsUrl = "https://www.google.com/maps/dir/?api=1&destination=" + lat + "," + lng;
 
-    const wrap = el("span", "customer-value");
-    wrap.append(linkNode("Open in Google Maps", mapUrl, true), document.createTextNode(accuracy));
-    box.appendChild(detailLine("Location", wrap));
+    // Two links side by side: open the pin, or get directions to it
+    const links = el("span", "customer-value");
+    links.append(
+      linkNode("Open in Google Maps", mapUrl, true),
+      document.createTextNode("  ·  "),
+      linkNode("Directions", directionsUrl, true)
+    );
+    box.appendChild(detailLine("Location", links));
+
+    // How accurate the GPS was, so staff know how far to trust the pin
+    if (order.location_accuracy_m) {
+      const metres = Math.round(order.location_accuracy_m);
+      let accuracyText = "±" + metres + " m";
+
+      if (metres > LOW_ACCURACY_METRES) {
+        accuracyText += " · low accuracy, please confirm by phone";
+      }
+
+      box.appendChild(detailLine("Accuracy", accuracyText));
+    }
+
+    // When the customer's phone captured this position
+    if (order.location_captured_at) {
+      box.appendChild(detailLine("Captured", formatDateTime(order.location_captured_at)));
+    }
+
+    box.appendChild(buildMapToggle(lat, lng));
   } else {
     box.appendChild(detailLine("Location", "Not shared"));
   }
@@ -462,10 +569,11 @@ function buildOrderCard(order) {
 
   const card = el("article", "order-card");
 
-  // ----- Grey header: dates, pieces and order number -----
+  // ----- Grey header: dates, customer, pieces and order number -----
   const head = el("div", "order-head");
   head.append(
     headerBlock("Order placed", formatDate(order.created_at)),
+    headerBlock("Customer", order.customer_name || "-"),
     headerBlock("Deliver back by", formatDateTime(order.delivery_time)),
     headerBlock("Pieces", String(totalPieces))
   );
@@ -542,7 +650,7 @@ function buildOrderCard(order) {
   statusRow.appendChild(el("span", "admin-status-label amount-label", methodText));
   body.appendChild(statusRow);
 
-  // ----- Customer box: name, email, phone, location (new) -----
+  // ----- Customer box: name, email, phone, location -----
   body.appendChild(buildCustomerBox(order));
 
   // ----- Items in this order -----
@@ -592,19 +700,38 @@ function buildSummary() {
   });
 }
 
+// I check whether an order matches what staff typed in the search box.
+// Staff can search by order number, customer name or phone number.
+function matchesSearch(order, query) {
+  if (query === "") return true;
+
+  // Order number, like "sc1007"
+  if (shortId(order).toLowerCase().includes(query)) return true;
+
+  // Customer name
+  if (String(order.customer_name || "").toLowerCase().includes(query)) return true;
+
+  // Phone number: I compare digits only, so spaces and dashes don't matter
+  const queryDigits = query.replace(/\D/g, "");
+  if (queryDigits !== "" && String(order.customer_phone || "").replace(/\D/g, "").includes(queryDigits)) {
+    return true;
+  }
+
+  return false;
+}
+
 // I redraw the whole page from the orders I have in memory
 function render() {
   adminTools.hidden = false;
   buildSummary();
   adminList.innerHTML = "";
 
-  const query = searchText.trim().toUpperCase();
+  const query = searchText.trim().toLowerCase();
 
   // I keep only the orders that match the selected status and the search box
   const visible = orders.filter(function (order) {
     const statusMatch = activeFilter === "all" || order.status === activeFilter;
-    const searchMatch = query === "" || shortId(order).includes(query);
-    return statusMatch && searchMatch;
+    return statusMatch && matchesSearch(order, query);
   });
 
   if (visible.length === 0) {
@@ -658,7 +785,7 @@ async function signPhotos(list) {
 }
 
 // I load every order, newest first, with its items.
-// I also ask for the customer details and location (new).
+// I also ask for the customer details and location.
 async function fetchOrders() {
   const { data, error } = await db
     .from("pickup_requests")
