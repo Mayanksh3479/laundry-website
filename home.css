@@ -1148,3 +1148,40 @@ a {
   width: 100%;
   max-width: 100%;
 }
+/* ---------- Phone header: logo on the left, account buttons on the right ---------- */
+@media (max-width: 720px) {
+  .header-inner {
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px 10px;
+  }
+
+  /* I make the logo a little more compact so the buttons fit beside it */
+  .site-header .brand {
+    gap: 8px;
+  }
+
+  .site-header .brand-logo {
+    width: 36px;
+    height: 36px;
+  }
+
+  .site-header .brand-text strong {
+    font-size: 17px;
+  }
+
+  .site-header .brand-text small {
+    letter-spacing: 1.5px;
+  }
+
+  /* I push the buttons to the right edge; their shape, size and colour stay the same */
+  .account-area {
+    margin-left: auto;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .account-area .pill {
+    white-space: nowrap;
+  }
+}
