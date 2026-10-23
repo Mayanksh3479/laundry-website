@@ -1,4 +1,21 @@
+// price list. empty price = "Ask in store". ranges use "-", formatPrice swaps it for en dash
 const PRICES = [
+  // gents - from the rate board photo
+  // TODO: last digit of coat pant / coat single is hard to read on the board, verify in store
+  { group: "Gents", name: "Coat Pant", price: "₹250" },
+  { group: "Gents", name: "Coat Single", price: "₹180" },
+  { group: "Gents", name: "Long Coat", price: "₹200" },
+  { group: "Gents", name: "Sherwani", price: "₹150-550" },
+  { group: "Gents", name: "Jersey Half", price: "₹120" },
+  { group: "Gents", name: "Jersey Full", price: "₹150" },
+  { group: "Gents", name: "Jacket", price: "₹150-220" },
+  { group: "Gents", name: "Jacket With Cap", price: "₹180-200" },
+  { group: "Gents", name: "Jacket Reversible", price: "₹200-250" },
+  { group: "Gents", name: "Jacket Leather", price: "₹250-550" },
+  { group: "Gents", name: "Waistcoat", price: "₹100" },
+  { group: "Gents", name: "Sweater Zipper", price: "₹120" },
+  { group: "Gents", name: "Hoodie Zipper", price: "₹150" },
+
   { group: "Gents", name: "Pants", price: "₹70" },
   { group: "Gents", name: "Shirt", price: "₹70" },
   { group: "Gents", name: "T-Shirt", price: "₹70" },
@@ -12,8 +29,9 @@ const PRICES = [
   { group: "Gents", name: "Tie", price: "₹50" },
   { group: "Gents", name: "Cap", price: "₹70" },
   { group: "Gents", name: "Mask", price: "₹25" },
-  { group: "Gents", name: "Lohi", price: "₹150" },
+  { group: "Gents", name: "Lohi/Shawl", price: "₹150" },
 
+  // ladies
   { group: "Ladies", name: "Ladies Suit 3p", price: "₹200" },
   { group: "Ladies", name: "Suit Light", price: "₹100-150" },
   { group: "Ladies", name: "Suit (Light Work)", price: "₹150" },
@@ -41,6 +59,7 @@ const PRICES = [
   { group: "Ladies", name: "Pullover & Cardigan", price: "₹150" },
 ];
 
+// cards visible before "show all"
 const COLLAPSED_COUNT = 8;
 
 const priceGrid = document.getElementById("price-grid");
@@ -54,6 +73,7 @@ let activeGroup = "All";
 let expanded = false;
 
 function formatPrice(price) {
+  // hyphen -> en dash for ranges
   return price ? price.replace("-", "–") : null;
 }
 
@@ -83,6 +103,7 @@ function matchingPrices() {
 
   return PRICES.filter(function (item) {
     const inGroup = activeGroup === "All" || item.group === activeGroup;
+    // search checks name + group, so typing "ladies" works too
     const inSearch =
       query === "" ||
       item.name.toLowerCase().includes(query) ||
@@ -96,6 +117,7 @@ function renderPrices() {
   const matches = matchingPrices();
   const shown = expanded ? matches : matches.slice(0, COLLAPSED_COUNT);
 
+  // wipe and rebuild, list is small so no need to diff
   priceGrid.innerHTML = "";
   shown.forEach(function (item) {
     priceGrid.appendChild(buildPriceCard(item));
@@ -108,6 +130,7 @@ function renderPrices() {
       ? ""
       : "Showing " + shown.length + " of " + matches.length + " rates";
 
+  // no point in the button if everything already fits
   priceMore.hidden = matches.length <= COLLAPSED_COUNT;
   priceMore.textContent = expanded
     ? "Show fewer"
@@ -115,6 +138,7 @@ function renderPrices() {
 }
 
 priceSearch.addEventListener("input", function () {
+  // expand while searching so results don't get cut off
   expanded = priceSearch.value.trim() !== "";
   renderPrices();
 });
@@ -140,6 +164,7 @@ priceMore.addEventListener("click", function () {
 
 renderPrices();
 
+// nav highlight on scroll
 const navLinks = Array.from(document.querySelectorAll(".main-nav a"));
 
 const sectionsByLink = navLinks
@@ -147,6 +172,7 @@ const sectionsByLink = navLinks
     return { link: link, section: document.querySelector(link.getAttribute("href")) };
   })
   .filter(function (entry) {
+    // skip links that point to nothing
     return entry.section;
   });
 
@@ -156,6 +182,7 @@ function setActiveLink(activeEntry) {
   });
 }
 
+// old browsers just won't get the highlight
 if ("IntersectionObserver" in window) {
   const observer = new IntersectionObserver(
     function (observed) {
@@ -168,6 +195,7 @@ if ("IntersectionObserver" in window) {
         if (entry) setActiveLink(entry);
       });
     },
+    // only fires when the section is around the middle of the viewport
     { rootMargin: "-40% 0px -55% 0px" }
   );
 
