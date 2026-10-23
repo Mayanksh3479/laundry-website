@@ -292,7 +292,9 @@ function locationErrorText(error) {
 // ---------------------------------------------------------------------
 // Pickup address (like Amazon and Flipkart)
 // The customer can type the address, or tap "Use my current location"
-// to fill most of it in. Either way they can edit every box.
+// to fill the street and area in. Either way they can edit every box.
+// The pincode is always typed by the customer, and I use it to fill in
+// the city and state (see "Pincode lookup" below).
 // ---------------------------------------------------------------------
 
 // I remember the GPS position here after the customer taps the button.
@@ -311,14 +313,65 @@ function clearPinnedLocation() {
   setLocateStatus("", "");
 }
 
-// I only let digits into the pincode box
-addrPincode.addEventListener("input", function () {
+// ---------------------------------------------------------------------
+// Pincode lookup
+// OpenStreetMap's pincodes are often wrong in India, so I never use them.
+// I ask India Post instead, which is the official source for pincodes.
+// ---------------------------------------------------------------------
+
+// I ask India Post which district and state a pincode belongs to.
+// I return { city, state }, or null if the pincode is unknown or the lookup failed.
+async function lookupPincode(pincode) {
+  const controller = new AbortController();
+  const timer = setTimeout(function () {
+    controller.abort();
+  }, 8000); // I give up after 8 seconds
+
+  try {
+    const response = await fetch(
+      "https://api.postalpincode.in/pincode/" + encodeURIComponent(pincode),
+      { signal: controller.signal }
+    );
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (!data[0] || data[0].Status !== "Success") return null;
+
+    const offices = data[0].PostOffice;
+    if (!offices || offices.length === 0) return null;
+
+    return { city: offices[0].District, state: offices[0].State };
+  } catch (error) {
+    console.log("Pincode lookup failed:", error.message);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// I only let digits into the pincode box. When all 6 digits are typed,
+// I fill in the city and state automatically (the customer can still edit them).
+addrPincode.addEventListener("input", async function () {
   addrPincode.value = addrPincode.value.replace(/\D/g, "").slice(0, 6);
+
+  if (addrPincode.value.length !== 6) return;
+
+  const typedPincode = addrPincode.value;
+  const info = await lookupPincode(typedPincode);
+
+  // The customer may have kept typing while I waited, so I ignore old answers
+  if (addrPincode.value !== typedPincode) return;
+
+  if (info) {
+    addrCity.value = info.city;
+    addrState.value = info.state;
+  }
 });
 
 // I turn a GPS position into a street address using OpenStreetMap's free
 // lookup service. It is not perfect in every area, so I only use it to
-// pre-fill the boxes; the customer checks and edits them.
+// pre-fill the area box; the customer checks and edits it.
 // I return the address parts, or null if the lookup failed.
 async function lookupAddress(latitude, longitude) {
   const controller = new AbortController();
@@ -342,6 +395,10 @@ async function lookupAddress(latitude, longitude) {
     if (!response.ok) return null;
 
     const data = await response.json();
+
+    // I log the raw answer so I can check what OpenStreetMap sent back
+    console.log("OpenStreetMap address:", data.address);
+
     return data.address || null;
   } catch (error) {
     console.log("Address lookup failed:", error.message);
@@ -351,22 +408,21 @@ async function lookupAddress(latitude, longitude) {
   }
 }
 
-// I pick the useful parts out of the lookup result
+// I pick the useful part out of the lookup result.
+// I only read the street and area. I skip the pincode and city on purpose,
+// because OpenStreetMap often gets them wrong in India.
 function readFoundAddress(found) {
   return {
     area: [found.road, found.neighbourhood || found.suburb || found.city_district]
       .filter(Boolean)
       .join(", "),
-    city: found.city || found.town || found.village || found.state_district || found.county || "",
-    state: found.state || "",
-    pincode: String(found.postcode || "").replace(/\D/g, "").slice(0, 6),
   };
 }
 
 // When the customer taps "Use my current location":
 // 1. I ask the browser for the position (the permission pop-up appears here)
 // 2. I look up the street address for that position
-// 3. I fill the boxes, and the customer checks them and adds the house number
+// 3. I fill the area box, and the customer adds the pincode and house number
 locateButton.addEventListener("click", async function () {
   locateButton.disabled = true;
   setLocateStatus("Getting your location...", "");
@@ -404,19 +460,20 @@ locateButton.addEventListener("click", async function () {
     return;
   }
 
-  // Step 3: I fill the boxes I can. I never touch the house number or landmark,
-  // because only the customer knows those.
+  // Step 3: I fill the area box. I never touch the house number or landmark,
+  // because only the customer knows those. I also leave the pincode alone:
+  // the customer types it, and then the city and state fill in from India Post.
   const address = readFoundAddress(found);
   if (address.area) addrArea.value = address.area;
-  if (address.city) addrCity.value = address.city;
-  if (address.state) addrState.value = address.state;
-  if (address.pincode) addrPincode.value = address.pincode;
 
   setLocateStatus(
-    "Location captured (about " + metres + " m). Please check the address below and add your house or flat number.",
+    "Location captured (about " + metres + " m). Please enter your pincode and add your house or flat number.",
     "ok"
   );
   locateButton.disabled = false;
+
+  // I take the customer straight to the pincode box
+  addrPincode.focus();
 });
 
 // I read and check the address boxes. I return the address, or null if
