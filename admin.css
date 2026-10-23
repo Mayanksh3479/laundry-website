@@ -876,3 +876,34 @@ main section {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ---------------------------------------------------------------------
+   Remove-from-dashboard button (bottom of each delivered order)
+   --------------------------------------------------------------------- */
+
+/* I put the button on its own row at the bottom right of the card */
+.order-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* I use the .delete-order-btn class so it beats the global blue "button" style */
+.delete-order-btn {
+  margin: 0;
+  padding: 9px 18px;
+  background: white;
+  color: #b42318;
+  border: 1px solid #b42318;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.delete-order-btn:hover {
+  background: #b42318;
+  color: white;
+}

@@ -23,6 +23,10 @@ const PHOTO_LINK_SECONDS = 3600; // I make photo links valid for one hour
 // If the GPS accuracy is worse than this (in metres), I warn staff
 const LOW_ACCURACY_METRES = 100;
 
+// If true, staff can only remove orders that are already "Delivered".
+// I set it to false if I want the remove button on every order.
+const REMOVE_ONLY_DELIVERED = true;
+
 // The order statuses I let staff choose from, in the order they happen
 const STATUSES = [
   { value: "pending", label: "Pending" },
@@ -123,6 +127,55 @@ logoutStayButton.addEventListener("click", function () {
 
 logoutDialog.addEventListener("click", function (event) {
   if (event.target === logoutDialog) logoutDialog.close();
+});
+
+// ---------------------------------------------------------------------
+// "Remove from dashboard" confirmation pop-up
+// I ask first, in case of an accidental tap.
+// Removing only hides the order from this dashboard. The customer still
+// sees it in My Orders, and the order and photos stay in the database.
+// I reuse the log out pop-up's classes so both look the same.
+// ---------------------------------------------------------------------
+const removeDialog = document.createElement("dialog");
+removeDialog.className = "logout-dialog";
+
+const removeDialogTitle = document.createElement("h3");
+removeDialogTitle.className = "logout-dialog-title";
+
+const removeDialogText = document.createElement("p");
+removeDialogText.className = "logout-dialog-text";
+
+const removeKeepButton = document.createElement("button");
+removeKeepButton.type = "button";
+removeKeepButton.className = "logout-stay";
+removeKeepButton.textContent = "Keep on dashboard";
+
+const removeConfirmButton = document.createElement("button");
+removeConfirmButton.type = "button";
+removeConfirmButton.className = "logout-confirm";
+removeConfirmButton.textContent = "Yes, remove";
+
+const removeDialogActions = document.createElement("div");
+removeDialogActions.className = "logout-dialog-actions";
+removeDialogActions.append(removeKeepButton, removeConfirmButton);
+
+removeDialog.append(removeDialogTitle, removeDialogText, removeDialogActions);
+document.body.appendChild(removeDialog);
+
+// I remember which order the pop-up is about
+let orderToRemove = null;
+
+removeKeepButton.addEventListener("click", function () {
+  orderToRemove = null;
+  removeDialog.close();
+});
+
+// I close it when staff click the dark area, unless a save is in progress
+removeDialog.addEventListener("click", function (event) {
+  if (event.target === removeDialog && !removeConfirmButton.disabled) {
+    orderToRemove = null;
+    removeDialog.close();
+  }
 });
 
 // ---------------------------------------------------------------------
@@ -380,6 +433,62 @@ async function changePaid(order, select) {
   order.paid = next === "paid";
   showToast("Order #" + shortId(order) + " marked as " + next);
 }
+
+// ---------------------------------------------------------------------
+// Removing an order from the dashboard
+// ---------------------------------------------------------------------
+
+// I open the confirmation pop-up for one order
+function askRemove(order) {
+  orderToRemove = order;
+
+  removeDialogTitle.textContent = "Remove order " + shortId(order) + "?";
+
+  let text = "This removes the order from your dashboard. The customer will still see it in My Orders.";
+
+  // I add a warning if the order has not been paid yet
+  if (!order.paid) {
+    text += " This order is still marked Unpaid.";
+  }
+
+  removeDialogText.textContent = text;
+  removeDialog.showModal();
+}
+
+// When staff confirm, I mark the order as hidden from staff and refresh the page.
+// I do not delete anything: the order, its items and its photos all stay.
+removeConfirmButton.addEventListener("click", async function () {
+  const order = orderToRemove;
+  if (!order) return;
+
+  removeConfirmButton.disabled = true;
+  removeKeepButton.disabled = true;
+
+  const { data, error } = await db
+    .from("pickup_requests")
+    .update({ staff_hidden_at: new Date().toISOString() })
+    .eq("id", order.id)
+    .select("id");
+
+  removeConfirmButton.disabled = false;
+  removeKeepButton.disabled = false;
+  removeDialog.close();
+  orderToRemove = null;
+
+  // If no row came back, nothing changed (for example, a permission problem)
+  if (error || !data || data.length === 0) {
+    console.log("Remove failed:", error ? error.message : "no row changed");
+    showToast("Could not remove the order. Please try again.", true);
+    return;
+  }
+
+  // I take the order off the page straight away
+  orders = orders.filter(function (known) {
+    return known.id !== order.id;
+  });
+  render();
+  showToast("Order " + shortId(order) + " removed from the dashboard");
+});
 
 // ---------------------------------------------------------------------
 // Customer details and location
@@ -693,6 +802,22 @@ function buildOrderCard(order) {
   });
 
   body.appendChild(itemsBox);
+
+  // ----- Remove button: only for delivered orders (see REMOVE_ONLY_DELIVERED) -----
+  if (!REMOVE_ONLY_DELIVERED || order.status === "delivered") {
+    const actions = el("div", "order-actions");
+
+    const removeButton = el("button", "delete-order-btn", "Remove from dashboard");
+    removeButton.type = "button";
+
+    removeButton.addEventListener("click", function () {
+      askRemove(order);
+    });
+
+    actions.appendChild(removeButton);
+    body.appendChild(actions);
+  }
+
   card.append(head, body);
   return card;
 }
@@ -827,6 +952,7 @@ async function fetchOrders() {
         "latitude, longitude, location_accuracy_m, location_captured_at, " +
         "request_items(category, quantity, photo_paths)"
     )
+    .is("staff_hidden_at", null) // I skip orders staff have removed from the dashboard
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -862,6 +988,15 @@ function watchOrders() {
     .on("postgres_changes", { event: "*", schema: "public", table: "pickup_requests" }, function (payload) {
       // For a simple update, I patch the order I already have in memory
       if (payload.eventType === "UPDATE") {
+        // If someone removed this order from the dashboard, I drop it here too
+        if (payload.new.staff_hidden_at) {
+          orders = orders.filter(function (order) {
+            return order.id !== payload.new.id;
+          });
+          render();
+          return;
+        }
+
         const known = orders.find(function (order) {
           return order.id === payload.new.id;
         });
