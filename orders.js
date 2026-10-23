@@ -744,12 +744,21 @@ function buildPaymentPanel(order) {
   const openLink = el("a", "pay-upi-btn", "Open UPI app");
   openLink.href = upiLink(order);
 
-  // On a computer there is no UPI app, so explain instead of doing nothing
+  // On a computer there is no UPI app, so explain instead of doing nothing.
+  // On a phone, if no UPI app opens, show help after a short wait.
   openLink.addEventListener("click", function (event) {
     if (!isMobileDevice()) {
       event.preventDefault();
-      alert("UPI apps open only on a phone. Please copy the UPI ID and pay from your phone, or open this page on your phone.");
+      alert("UPI apps open only on a phone. Please copy the UPI ID and pay from your phone.");
+      return;
     }
+
+    // If an app opens, the browser page gets hidden. If not, show help.
+    setTimeout(function () {
+      if (!document.hidden) {
+        alert("No UPI app found. Please install Google Pay, PhonePe or Paytm, or tap 'Copy UPI ID' and pay manually.");
+      }
+    }, 1500);
   });
 
   const copyButton = el("button", "pay-secondary", "Copy UPI ID");
