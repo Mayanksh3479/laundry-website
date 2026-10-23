@@ -285,6 +285,132 @@
                             <option value="">Select a time</option>
                         </select>
 
+                        <!-- ===== Pickup address (like Amazon and Flipkart) ===== -->
+                        <h3 class="items-title">Pickup address</h3>
+
+                        <div class="address-box">
+                            <button type="button" id="locate-btn" class="btn btn-outline locate-btn">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg>
+                                Use my current location
+                            </button>
+                            <p class="address-hint">We use your location only to find your pickup address. You can still type it yourself.</p>
+                            <p id="locate-status" class="locate-status" aria-live="polite"></p>
+
+                            <label for="addr-pincode">Pincode</label>
+                            <input
+                                type="text"
+                                id="addr-pincode"
+                                name="address_pincode"
+                                inputmode="numeric"
+                                maxlength="6"
+                                pattern="[1-9][0-9]{5}"
+                                placeholder="6-digit pincode"
+                                title="Enter a 6-digit pincode"
+                                autocomplete="postal-code"
+                                required
+                            >
+
+                            <label for="addr-house">Flat, house no., building, company</label>
+                            <input
+                                type="text"
+                                id="addr-house"
+                                name="address_house"
+                                maxlength="100"
+                                placeholder="e.g. House 12, 2nd floor"
+                                autocomplete="address-line1"
+                                required
+                            >
+
+                            <label for="addr-area">Area, street, sector, village</label>
+                            <input
+                                type="text"
+                                id="addr-area"
+                                name="address_area"
+                                maxlength="150"
+                                placeholder="e.g. Gali no. 12, Ashok Vatika"
+                                autocomplete="address-line2"
+                                required
+                            >
+
+                            <label for="addr-landmark">Landmark (optional)</label>
+                            <input
+                                type="text"
+                                id="addr-landmark"
+                                name="address_landmark"
+                                maxlength="100"
+                                placeholder="e.g. Near the park"
+                                autocomplete="off"
+                            >
+
+                            <label for="addr-city">Town / city</label>
+                            <input
+                                type="text"
+                                id="addr-city"
+                                name="address_city"
+                                maxlength="60"
+                                autocomplete="address-level2"
+                                required
+                            >
+
+                            <label for="addr-state">State</label>
+                            <input
+                                type="text"
+                                id="addr-state"
+                                name="address_state"
+                                list="state-list"
+                                maxlength="60"
+                                placeholder="Type to search, e.g. Uttar Pradesh"
+                                autocomplete="address-level1"
+                                required
+                            >
+
+                            <label for="addr-type">Address type</label>
+                            <select id="addr-type" name="address_type" required>
+                                <option value="Home">Home</option>
+                                <option value="Work">Work</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <datalist id="state-list">
+                            <option value="Andaman and Nicobar Islands"></option>
+                            <option value="Andhra Pradesh"></option>
+                            <option value="Arunachal Pradesh"></option>
+                            <option value="Assam"></option>
+                            <option value="Bihar"></option>
+                            <option value="Chandigarh"></option>
+                            <option value="Chhattisgarh"></option>
+                            <option value="Dadra and Nagar Haveli and Daman and Diu"></option>
+                            <option value="Delhi"></option>
+                            <option value="Goa"></option>
+                            <option value="Gujarat"></option>
+                            <option value="Haryana"></option>
+                            <option value="Himachal Pradesh"></option>
+                            <option value="Jammu and Kashmir"></option>
+                            <option value="Jharkhand"></option>
+                            <option value="Karnataka"></option>
+                            <option value="Kerala"></option>
+                            <option value="Ladakh"></option>
+                            <option value="Lakshadweep"></option>
+                            <option value="Madhya Pradesh"></option>
+                            <option value="Maharashtra"></option>
+                            <option value="Manipur"></option>
+                            <option value="Meghalaya"></option>
+                            <option value="Mizoram"></option>
+                            <option value="Nagaland"></option>
+                            <option value="Odisha"></option>
+                            <option value="Puducherry"></option>
+                            <option value="Punjab"></option>
+                            <option value="Rajasthan"></option>
+                            <option value="Sikkim"></option>
+                            <option value="Tamil Nadu"></option>
+                            <option value="Telangana"></option>
+                            <option value="Tripura"></option>
+                            <option value="Uttar Pradesh"></option>
+                            <option value="Uttarakhand"></option>
+                            <option value="West Bengal"></option>
+                        </datalist>
+
                         <h3 class="items-title">Your items</h3>
 
                         <div id="items">

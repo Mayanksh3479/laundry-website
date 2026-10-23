@@ -1,19 +1,12 @@
-
 // =====================================================================
 // admin.js: the staff dashboard (orders, status, payment, customer info)
 // =====================================================================
 
-
-// =====================================================================
-// admin.js: the staff dashboard (admin.html)
-// =====================================================================
-
 // ---------------------------------------------------------------------
 // Supabase connection
-// IMPORTANT: put your real values here (the same ones you use in script.js).
+
 // I use the "anon" public key, never the service_role key.
 // ---------------------------------------------------------------------
-
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
 
@@ -439,6 +432,22 @@ function hasLocation(order) {
   );
 }
 
+// I join the saved address boxes into one readable line, like
+// "12, Gali no. 12, Ashok Vatika (Near the park), Ghaziabad, Uttar Pradesh - 201005".
+// I return an empty string for older orders that have no address.
+function addressText(order) {
+  if (!order.address_house && !order.address_area) return "";
+
+  const area = order.address_landmark
+    ? order.address_area + " (Near " + order.address_landmark + ")"
+    : order.address_area;
+
+  const cityLine = [order.address_city, order.address_state].filter(Boolean).join(", ");
+  const pincode = order.address_pincode ? " - " + order.address_pincode : "";
+
+  return [order.address_house, area, cityLine + pincode].filter(Boolean).join(", ");
+}
+
 // I build the "Show map" button and the box that holds the map.
 // I only create the map when staff click, so a long list of orders
 // doesn't load dozens of maps at once.
@@ -514,6 +523,17 @@ function buildCustomerBox(order) {
     )
   );
 
+  // Address: what the customer typed (or confirmed) in the pickup address form.
+  // Older orders have no address, so I say so.
+  const fullAddress = addressText(order);
+
+  if (fullAddress) {
+    const typePrefix = order.address_type ? order.address_type + ": " : "";
+    box.appendChild(detailLine("Address", typePrefix + fullAddress));
+  } else {
+    box.appendChild(detailLine("Address", "Not provided"));
+  }
+
   // Location: if the customer shared it, I show links, accuracy, time and a map
   if (hasLocation(order)) {
     const lat = Number(order.latitude);
@@ -549,6 +569,17 @@ function buildCustomerBox(order) {
     }
 
     box.appendChild(buildMapToggle(lat, lng));
+  } else if (fullAddress) {
+    // No GPS pin, but there is an address: I let staff search it on Google Maps
+    const searchUrl =
+      "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(fullAddress);
+
+    const links = el("span", "customer-value");
+    links.append(
+      linkNode("Search address in Google Maps", searchUrl, true),
+      document.createTextNode("  (no GPS pin shared)")
+    );
+    box.appendChild(detailLine("Location", links));
   } else {
     box.appendChild(detailLine("Location", "Not shared"));
   }
@@ -792,6 +823,7 @@ async function fetchOrders() {
     .select(
       "id, order_no, status, created_at, delivery_time, total_amount, paid, payment_method, upi_ref, " +
         "customer_name, customer_email, customer_phone, " +
+        "address_type, address_house, address_area, address_landmark, address_city, address_state, address_pincode, " +
         "latitude, longitude, location_accuracy_m, location_captured_at, " +
         "request_items(category, quantity, photo_paths)"
     )

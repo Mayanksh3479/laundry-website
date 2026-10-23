@@ -4,11 +4,12 @@
 
 // ---------------------------------------------------------------------
 // Supabase connection
-// IMPORTANT: replace the two placeholders below with your real values
+
 // (Supabase dashboard > Project Settings > API). Use the "anon" public key.
 // ---------------------------------------------------------------------
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
+
 // I create one Supabase client and use it for everything on this page
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -24,6 +25,17 @@ const loginNotice = document.getElementById("login-notice");
 const loginLink = document.getElementById("login-link");
 const logoutButton = document.getElementById("logout-btn");
 const ordersLink = document.getElementById("orders-link");
+
+// The pickup address boxes (like the address form on Amazon or Flipkart)
+const locateButton = document.getElementById("locate-btn");
+const locateStatus = document.getElementById("locate-status");
+const addrPincode = document.getElementById("addr-pincode");
+const addrHouse = document.getElementById("addr-house");
+const addrArea = document.getElementById("addr-area");
+const addrLandmark = document.getElementById("addr-landmark");
+const addrCity = document.getElementById("addr-city");
+const addrState = document.getElementById("addr-state");
+const addrType = document.getElementById("addr-type");
 
 // I remember who is logged in here (null means nobody)
 let currentUser = null;
@@ -226,9 +238,13 @@ const MAX_PHOTO_SIDE = 1600;
 const PHOTO_QUALITY = 0.8;
 let nextPhotoInputId = 1;
 
-// If true, a customer must share their location before I send the request.
-// I set it to false if I want to let customers send a request without it.
-const REQUIRE_LOCATION = true;
+// The pickup address is always required. The GPS pin is a bonus that helps
+// staff find the customer. If true, a customer must also tap
+// "Use my current location" before I send the request.
+const REQUIRE_LOCATION = false;
+
+// The address types I accept (they match the dropdown in index.html)
+const ADDRESS_TYPES = ["Home", "Work", "Other"];
 
 // I read the valid categories once from the datalist in index.html,
 // so the HTML stays the single source of truth
@@ -272,6 +288,187 @@ function locationErrorText(error) {
   }
 
   return "We could not get your location. Please turn on location services and try again.";
+}
+
+// ---------------------------------------------------------------------
+// Pickup address (like Amazon and Flipkart)
+// The customer can type the address, or tap "Use my current location"
+// to fill most of it in. Either way they can edit every box.
+// ---------------------------------------------------------------------
+
+// I remember the GPS position here after the customer taps the button.
+// It stays null if they only typed their address.
+let pinnedLocation = null;
+
+// I show a short message under the button. kind is "", "ok" or "error".
+function setLocateStatus(text, kind) {
+  locateStatus.textContent = text;
+  locateStatus.className = "locate-status" + (kind ? " " + kind : "");
+}
+
+// I forget the GPS position and clear the message (used after a request is sent)
+function clearPinnedLocation() {
+  pinnedLocation = null;
+  setLocateStatus("", "");
+}
+
+// I only let digits into the pincode box
+addrPincode.addEventListener("input", function () {
+  addrPincode.value = addrPincode.value.replace(/\D/g, "").slice(0, 6);
+});
+
+// I turn a GPS position into a street address using OpenStreetMap's free
+// lookup service. It is not perfect in every area, so I only use it to
+// pre-fill the boxes; the customer checks and edits them.
+// I return the address parts, or null if the lookup failed.
+async function lookupAddress(latitude, longitude) {
+  const controller = new AbortController();
+  const timer = setTimeout(function () {
+    controller.abort();
+  }, 8000); // I give up after 8 seconds
+
+  try {
+    const url =
+      "https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&accept-language=en" +
+      "&lat=" +
+      encodeURIComponent(latitude) +
+      "&lon=" +
+      encodeURIComponent(longitude);
+
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    return data.address || null;
+  } catch (error) {
+    console.log("Address lookup failed:", error.message);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// I pick the useful parts out of the lookup result
+function readFoundAddress(found) {
+  return {
+    area: [found.road, found.neighbourhood || found.suburb || found.city_district]
+      .filter(Boolean)
+      .join(", "),
+    city: found.city || found.town || found.village || found.state_district || found.county || "",
+    state: found.state || "",
+    pincode: String(found.postcode || "").replace(/\D/g, "").slice(0, 6),
+  };
+}
+
+// When the customer taps "Use my current location":
+// 1. I ask the browser for the position (the permission pop-up appears here)
+// 2. I look up the street address for that position
+// 3. I fill the boxes, and the customer checks them and adds the house number
+locateButton.addEventListener("click", async function () {
+  locateButton.disabled = true;
+  setLocateStatus("Getting your location...", "");
+
+  // Step 1: the GPS position
+  try {
+    const position = await getLocation();
+
+    pinnedLocation = {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracy: position.coords.accuracy,
+      capturedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.log("Location failed:", error.code, error.message);
+    pinnedLocation = null;
+    setLocateStatus(locationErrorText(error), "error");
+    locateButton.disabled = false;
+    return;
+  }
+
+  const metres = Math.round(pinnedLocation.accuracy);
+  setLocateStatus("Location captured (about " + metres + " m). Finding your address...", "");
+
+  // Step 2: the street address
+  const found = await lookupAddress(pinnedLocation.latitude, pinnedLocation.longitude);
+
+  if (!found) {
+    setLocateStatus(
+      "Location captured (about " + metres + " m), but we could not find the address. Please type it below.",
+      "ok"
+    );
+    locateButton.disabled = false;
+    return;
+  }
+
+  // Step 3: I fill the boxes I can. I never touch the house number or landmark,
+  // because only the customer knows those.
+  const address = readFoundAddress(found);
+  if (address.area) addrArea.value = address.area;
+  if (address.city) addrCity.value = address.city;
+  if (address.state) addrState.value = address.state;
+  if (address.pincode) addrPincode.value = address.pincode;
+
+  setLocateStatus(
+    "Location captured (about " + metres + " m). Please check the address below and add your house or flat number.",
+    "ok"
+  );
+  locateButton.disabled = false;
+});
+
+// I read and check the address boxes. I return the address, or null if
+// something is missing (after showing the customer an alert).
+function readAddress() {
+  const address = {
+    type: addrType.value,
+    house: addrHouse.value.trim(),
+    area: addrArea.value.trim(),
+    landmark: addrLandmark.value.trim(),
+    city: addrCity.value.trim(),
+    state: addrState.value.trim(),
+    pincode: addrPincode.value.trim(),
+  };
+
+  if (!ADDRESS_TYPES.includes(address.type)) {
+    alert("Please choose an address type: Home, Work or Other.");
+    return null;
+  }
+
+  if (!/^[1-9][0-9]{5}$/.test(address.pincode)) {
+    alert("Please enter a valid 6-digit pincode.");
+    addrPincode.focus();
+    return null;
+  }
+
+  if (address.house.length < 2) {
+    alert("Please enter your flat, house number or building name.");
+    addrHouse.focus();
+    return null;
+  }
+
+  if (address.area.length < 2) {
+    alert("Please enter your area, street or sector.");
+    addrArea.focus();
+    return null;
+  }
+
+  if (address.city.length < 2) {
+    alert("Please enter your town or city.");
+    addrCity.focus();
+    return null;
+  }
+
+  if (address.state.length < 2) {
+    alert("Please enter your state.");
+    addrState.focus();
+    return null;
+  }
+
+  return address;
 }
 
 // ---------------------------------------------------------------------
@@ -773,38 +970,23 @@ form.addEventListener("submit", async function (event) {
     items.push({ category, quantity, photos });
   }
 
-  // Step 3: I ask for the customer's live location.
-  // The browser shows its permission prompt at this moment.
-  const submitButton = form.querySelector('button[type="submit"]');
-  const submitLabel = submitButton.textContent;
-  submitButton.disabled = true;
-  submitButton.textContent = "Getting your location...";
+  // Step 3: I check the pickup address. The customer typed it, or filled it
+  // in with the "Use my current location" button. It is always required.
+  const address = readAddress();
+  if (!address) return;
 
-  let coords = null;
-
-  try {
-    const position = await getLocation();
-
-    coords = {
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-      accuracy: position.coords.accuracy,
-    };
-  } catch (error) {
-    console.log("Location failed:", error.code, error.message);
-
-    // If location is required, I stop here and give the button back
-    if (REQUIRE_LOCATION) {
-      alert(locationErrorText(error));
-      submitButton.disabled = false;
-      submitButton.textContent = submitLabel;
-      return;
-    }
-
-    // Otherwise I carry on without a location (coords stays null)
+  // If the owner wants a GPS pin on every order, I check for it here.
+  // The browser's permission pop-up appears when the customer taps the
+  // "Use my current location" button, not at this moment.
+  if (REQUIRE_LOCATION && !pinnedLocation) {
+    alert('Please tap "Use my current location" so our team can find you.');
+    return;
   }
 
   // Step 4: I upload the photos, then save the request and its items
+  const submitButton = form.querySelector('button[type="submit"]');
+  const submitLabel = submitButton.textContent;
+  submitButton.disabled = true;
   submitButton.textContent = "Sending...";
 
   // I generate the id here so photos and items can be linked to it
@@ -814,16 +996,24 @@ form.addEventListener("submit", async function (event) {
   try {
     const photoPaths = await uploadPhotos(requestId, items);
 
-    // I save the location with the request. The customer's name, email and
-    // phone are filled in automatically by the database trigger.
+    // I save the address, and the GPS pin if the customer shared one.
+    // The customer's name, email and phone are filled in automatically
+    // by the database trigger.
     const { error: requestError } = await db.from("pickup_requests").insert({
       id: requestId,
       user_id: sessionData.session.user.id,
       delivery_time: deliveryDate.toISOString(),
-      latitude: coords ? coords.latitude : null,
-      longitude: coords ? coords.longitude : null,
-      location_accuracy_m: coords ? coords.accuracy : null,
-      location_captured_at: coords ? new Date().toISOString() : null,
+      address_type: address.type,
+      address_house: address.house,
+      address_area: address.area,
+      address_landmark: address.landmark || null,
+      address_city: address.city,
+      address_state: address.state,
+      address_pincode: address.pincode,
+      latitude: pinnedLocation ? pinnedLocation.latitude : null,
+      longitude: pinnedLocation ? pinnedLocation.longitude : null,
+      location_accuracy_m: pinnedLocation ? pinnedLocation.accuracy : null,
+      location_captured_at: pinnedLocation ? pinnedLocation.capturedAt : null,
     });
     if (requestError) throw requestError;
 
@@ -843,6 +1033,7 @@ form.addEventListener("submit", async function (event) {
     alert("Request sent! We will contact you soon.");
     form.reset();
     resetItemRows();
+    clearPinnedLocation();
   } catch (error) {
     console.log("Sending failed:", error.message);
     alert("Sorry, we could not send your request. Please try again.");

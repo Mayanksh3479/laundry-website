@@ -1089,3 +1089,62 @@ a {
   outline: 3px solid #93c5fd;
   outline-offset: 2px;
 }
+/* =====================================================================
+   Pickup address section (Request a Pickup form)
+   I paste this at the very bottom of home.css
+   ===================================================================== */
+
+/* The grey box that holds the whole address form */
+.address-box {
+  margin-top: 8px;
+  padding: 18px 20px 22px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+}
+
+/* The "Use my current location" button */
+.address-box .locate-btn {
+  margin: 0;
+}
+
+/* The small privacy line under the button */
+.address-hint {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+/* The message that appears after the button is tapped */
+.locate-status {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.locate-status:empty {
+  display: none;
+}
+
+.locate-status.ok {
+  color: #047857;
+}
+
+.locate-status.error {
+  color: #b91c1c;
+}
+
+/* Labels and boxes inside the address form keep a comfortable gap */
+.address-box label {
+  display: block;
+  margin-top: 16px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.address-box input,
+.address-box select {
+  width: 100%;
+  max-width: 100%;
+}
