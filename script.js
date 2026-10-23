@@ -4,12 +4,11 @@
 
 // ---------------------------------------------------------------------
 // Supabase connection
-
+// IMPORTANT: replace the two placeholders below with your real values
 // (Supabase dashboard > Project Settings > API). Use the "anon" public key.
 // ---------------------------------------------------------------------
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
-
 // I create one Supabase client and use it for everything on this page
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -882,6 +881,206 @@ dateInput.addEventListener("input", function (event) {
 });
 
 // ---------------------------------------------------------------------
+// Payment pop-up
+// After the form passes every check, I ask how the customer wants to pay.
+// Nothing is charged now: the amount is only known after our team sees the
+// clothes, so the customer pays later, either in cash or by UPI.
+// I reuse the log out pop-up's look so every pop-up on the site matches.
+// ---------------------------------------------------------------------
+
+// The choices I offer. The "value" is what I save with the request.
+const PAYMENT_CHOICES = [
+  {
+    value: "cod",
+    label: "Cash on delivery",
+    note: "Pay in cash when we bring your clothes back.",
+  },
+  {
+    value: "upi",
+    label: "UPI",
+    note: "Pay by UPI once we confirm the amount.",
+  },
+];
+
+const paymentDialog = document.createElement("dialog");
+paymentDialog.className = "logout-dialog payment-dialog";
+
+const paymentTitle = document.createElement("h3");
+paymentTitle.className = "logout-dialog-title";
+paymentTitle.textContent = "How would you like to pay?";
+
+const paymentText = document.createElement("p");
+paymentText.className = "logout-dialog-text";
+paymentText.textContent = "You pay after we confirm the amount. Nothing is charged now.";
+
+const paymentChoiceBox = document.createElement("div");
+paymentChoiceBox.className = "pay-choices";
+
+const paymentBackButton = document.createElement("button");
+paymentBackButton.type = "button";
+paymentBackButton.className = "logout-stay";
+paymentBackButton.textContent = "Go back";
+
+const paymentConfirmButton = document.createElement("button");
+paymentConfirmButton.type = "button";
+paymentConfirmButton.className = "pay-confirm";
+paymentConfirmButton.textContent = "Send request";
+paymentConfirmButton.disabled = true; // I keep it off until a choice is made
+
+const paymentActions = document.createElement("div");
+paymentActions.className = "logout-dialog-actions";
+paymentActions.append(paymentBackButton, paymentConfirmButton);
+
+// I remember what the customer picked, and the promise I will answer
+let chosenPayment = null;
+let paymentResolve = null;
+
+// I highlight the picked choice and switch the confirm button on
+function markPaymentChoice(value) {
+  chosenPayment = value;
+
+  paymentChoiceBox.querySelectorAll(".pay-choice").forEach(function (button) {
+    const picked = button.dataset.value === value;
+    button.classList.toggle("selected", picked);
+    button.setAttribute("aria-pressed", picked ? "true" : "false");
+  });
+
+  paymentConfirmButton.disabled = value === null;
+}
+
+// I build one big button for each payment choice
+PAYMENT_CHOICES.forEach(function (choice) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "pay-choice";
+  button.dataset.value = choice.value;
+  button.setAttribute("aria-pressed", "false");
+
+  const label = document.createElement("strong");
+  label.textContent = choice.label;
+
+  const note = document.createElement("span");
+  note.textContent = choice.note;
+
+  button.append(label, note);
+
+  button.addEventListener("click", function () {
+    markPaymentChoice(choice.value);
+  });
+
+  paymentChoiceBox.appendChild(button);
+});
+
+paymentDialog.append(paymentTitle, paymentText, paymentChoiceBox, paymentActions);
+document.body.appendChild(paymentDialog);
+
+// I answer the waiting promise once, then close the pop-up
+function finishPayment(value) {
+  const resolve = paymentResolve;
+  paymentResolve = null; // I clear it first so the "close" listener below does nothing
+
+  if (paymentDialog.open) paymentDialog.close();
+  if (resolve) resolve(value);
+}
+
+paymentBackButton.addEventListener("click", function () {
+  finishPayment(null);
+});
+
+paymentConfirmButton.addEventListener("click", function () {
+  finishPayment(chosenPayment);
+});
+
+// If the pop-up closes any other way (Esc key, or a click on the dark area),
+// I treat it as "go back"
+paymentDialog.addEventListener("click", function (event) {
+  if (event.target === paymentDialog) paymentDialog.close();
+});
+
+paymentDialog.addEventListener("close", function () {
+  if (paymentResolve) {
+    const resolve = paymentResolve;
+    paymentResolve = null;
+    resolve(null);
+  }
+});
+
+// I show the pop-up and wait. I return "cod" or "upi", or null if the
+// customer went back.
+function askPaymentMethod() {
+  markPaymentChoice(null);
+  paymentDialog.showModal();
+
+  return new Promise(function (resolve) {
+    paymentResolve = resolve;
+  });
+}
+
+// I add the pop-up's extra styles here, like the log out pop-up, so they
+// always load even if home.css is cached.
+const paymentStyle = document.createElement("style");
+paymentStyle.textContent = `
+  .payment-dialog .pay-choices {
+    display: grid;
+    gap: 12px;
+    margin: 0 0 22px;
+  }
+
+  .payment-dialog .pay-choice {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 14px 16px;
+    background: #ffffff;
+    color: #0f172a;
+    border: 2px solid #cbd5e1;
+    border-radius: 12px;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .payment-dialog .pay-choice:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+    color: #0f172a;
+  }
+
+  .payment-dialog .pay-choice.selected {
+    background: #eff6ff;
+    border-color: #1d4ed8;
+  }
+
+  .payment-dialog .pay-choice strong {
+    display: block;
+    font-size: 17px;
+  }
+
+  .payment-dialog .pay-choice span {
+    display: block;
+    margin-top: 4px;
+    font-size: 14px;
+    color: #475569;
+  }
+
+  .logout-dialog .pay-confirm {
+    background: #1d4ed8;
+    color: #ffffff;
+  }
+
+  .logout-dialog .pay-confirm:hover {
+    background: #1e40af;
+  }
+
+  .logout-dialog .pay-confirm:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+`;
+document.head.appendChild(paymentStyle);
+
+// ---------------------------------------------------------------------
 // Sending the request
 // ---------------------------------------------------------------------
 form.addEventListener("submit", async function (event) {
@@ -983,7 +1182,12 @@ form.addEventListener("submit", async function (event) {
     return;
   }
 
-  // Step 4: I upload the photos, then save the request and its items
+  // Step 4: I ask how the customer wants to pay (cash or UPI, paid later).
+  // If they go back, I stop here and nothing is sent.
+  const paymentMethod = await askPaymentMethod();
+  if (!paymentMethod) return;
+
+  // Step 5: I upload the photos, then save the request and its items
   const submitButton = form.querySelector('button[type="submit"]');
   const submitLabel = submitButton.textContent;
   submitButton.disabled = true;
@@ -1003,6 +1207,7 @@ form.addEventListener("submit", async function (event) {
       id: requestId,
       user_id: sessionData.session.user.id,
       delivery_time: deliveryDate.toISOString(),
+      payment_method: paymentMethod,
       address_type: address.type,
       address_house: address.house,
       address_area: address.area,
