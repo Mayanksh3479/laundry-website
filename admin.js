@@ -4,8 +4,6 @@
 
 // ---------------------------------------------------------------------
 // Supabase connection
-
-// I use the "anon" public key, never the service_role key.
 // ---------------------------------------------------------------------
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";

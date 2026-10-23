@@ -4,8 +4,6 @@
 
 // ---------------------------------------------------------------------
 // Supabase connection
-// IMPORTANT: replace the two placeholders below with your real values
-// (Supabase dashboard > Project Settings > API). Use the "anon" public key.
 // ---------------------------------------------------------------------
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
