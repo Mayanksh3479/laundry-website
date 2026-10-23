@@ -15,7 +15,6 @@ const PRICES = [
   { group: "Gents", name: "Waistcoat", price: "₹100" },
   { group: "Gents", name: "Sweater Zipper", price: "₹120" },
   { group: "Gents", name: "Hoodie Zipper", price: "₹150" },
-
   { group: "Gents", name: "Pants", price: "₹70" },
   { group: "Gents", name: "Shirt", price: "₹70" },
   { group: "Gents", name: "T-Shirt", price: "₹70" },
