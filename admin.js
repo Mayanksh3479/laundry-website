@@ -267,6 +267,14 @@ function headerBlock(label, value) {
   return block;
 }
 
+// I compare two amounts that may be a number, a numeric string or empty.
+// An empty amount (null / undefined) only matches another empty amount.
+function sameAmount(a, b) {
+  const first = a === null || a === undefined ? null : Number(a);
+  const second = b === null || b === undefined ? null : Number(b);
+  return first === second;
+}
+
 // ---------------------------------------------------------------------
 // Order items and photos
 // ---------------------------------------------------------------------
@@ -370,7 +378,16 @@ async function changeStatus(order, select) {
 }
 
 // I save the order amount. An empty box saves as "no amount yet".
+// Orders priced automatically from the rate list can't be changed here:
+// the box is read-only, and the database refuses the change as a second safety net.
 async function changeAmount(order, input) {
+  // I stop early if the price is locked (the box should be read-only already)
+  if (order.price_is_auto) {
+    input.value = order.total_amount === null || order.total_amount === undefined ? "" : order.total_amount;
+    showToast("This amount is set automatically from the rate list.", true);
+    return;
+  }
+
   const raw = input.value.trim();
   const value = raw === "" ? null : Number(raw);
   const previous =
@@ -396,7 +413,15 @@ async function changeAmount(order, input) {
   if (error || !data || data.length === 0) {
     console.log("Amount update failed:", error ? error.message : "no row changed");
     input.value = previous;
-    showToast("Could not save the amount. Please try again.", true);
+
+    // If the database refused because the price is automatic, I say so clearly
+    const locked = error && String(error.message).toLowerCase().includes("rate list");
+    showToast(
+      locked
+        ? "This amount is set automatically from the rate list."
+        : "Could not save the amount. Please try again.",
+      true
+    );
     return;
   }
 
@@ -743,6 +768,10 @@ function buildOrderCard(order) {
   statusRow.appendChild(select);
 
   // Amount box
+  // - Auto-priced order (every item has a fixed rate): the box is locked.
+  //   The database fills it in and updates it when items are added or removed.
+  // - Order with a range item (e.g. Sherwani, Saree): the box is open
+  //   and staff type the price after inspecting the garment.
   const amountLabel = el("span", "admin-status-label amount-label", "Amount (₹)");
   const amountInput = el("input", "amount-input");
   amountInput.type = "number";
@@ -751,6 +780,12 @@ function buildOrderCard(order) {
   amountInput.placeholder = "e.g. 280";
   amountInput.value =
     order.total_amount === null || order.total_amount === undefined ? "" : order.total_amount;
+
+  if (order.price_is_auto) {
+    amountInput.readOnly = true;
+    amountInput.classList.add("amount-locked");
+    amountInput.title = "Set automatically from the rate list";
+  }
 
   amountInput.addEventListener("change", function () {
     changeAmount(order, amountInput);
@@ -776,6 +811,14 @@ function buildOrderCard(order) {
   });
 
   statusRow.append(amountLabel, amountInput, paidLabel, paidSelect);
+
+  // Small note under the controls so staff know why the amount is locked,
+  // or that they need to price the order by hand
+  if (order.price_is_auto) {
+    statusRow.appendChild(el("span", "admin-status-label amount-label auto-price-note", "Auto-priced from rate list"));
+  } else if (order.total_amount === null || order.total_amount === undefined) {
+    statusRow.appendChild(el("span", "admin-status-label amount-label auto-price-note", "Enter the price after inspection"));
+  }
 
   // Payment method text (and the UPI reference when there is one)
   const methodNames = { cod: "Cash on delivery", upi: "UPI" };
@@ -939,12 +982,13 @@ async function signPhotos(list) {
 }
 
 // I load every order, newest first, with its items.
-// I also ask for the customer details and location.
+// I also ask for the customer details, location and price_is_auto
+// (true when the database priced the order from the rate list).
 async function fetchOrders() {
   const { data, error } = await db
     .from("pickup_requests")
     .select(
-      "id, order_no, status, created_at, delivery_time, total_amount, paid, payment_method, upi_ref, " +
+      "id, order_no, status, created_at, delivery_time, total_amount, price_is_auto, paid, payment_method, upi_ref, " +
         "customer_name, customer_email, customer_phone, " +
         "address_type, address_house, address_area, address_landmark, address_city, address_state, address_pincode, " +
         "latitude, longitude, location_accuracy_m, location_captured_at, " +
@@ -1000,14 +1044,22 @@ function watchOrders() {
         });
 
         if (known) {
+          // I also watch the amount, paid flag and price_is_auto now, because the
+          // database changes the amount by itself when the customer adds or removes items
           const changed =
             known.status !== payload.new.status ||
             known.payment_method !== payload.new.payment_method ||
-            known.upi_ref !== payload.new.upi_ref;
+            known.upi_ref !== payload.new.upi_ref ||
+            !!known.paid !== !!payload.new.paid ||
+            !!known.price_is_auto !== !!payload.new.price_is_auto ||
+            !sameAmount(known.total_amount, payload.new.total_amount);
 
           known.status = payload.new.status;
           known.payment_method = payload.new.payment_method;
           known.upi_ref = payload.new.upi_ref;
+          known.paid = payload.new.paid;
+          known.price_is_auto = payload.new.price_is_auto;
+          known.total_amount = payload.new.total_amount;
 
           if (changed) render();
         }
