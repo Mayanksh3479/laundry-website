@@ -384,7 +384,7 @@ async function lookupAddress(latitude, longitude) {
       }, 10000);
     });
 
-    const request = db.functions.invoke("reverse-geocode", {
+    const request = db.functions.invoke("super-service", {
       body: { latitude: latitude, longitude: longitude },
     });
 
