@@ -1226,3 +1226,7 @@ fieldset.address-box {
 .saved-address { margin-bottom: 16px; padding: 16px 18px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
 .saved-address-label { margin: 0 0 4px; font-weight: 600; }
 .saved-address-text { margin: 0 0 12px; }
+/* I ask the browser to draw the suggestion list in its light style */
+input[list] {
+  color-scheme: light;
+}
