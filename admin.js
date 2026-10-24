@@ -122,6 +122,68 @@ logoutDialog.addEventListener("click", function (event) {
   if (event.target === logoutDialog) logoutDialog.close();
 });
 
+// ---------- Confirmation pop-up ----------
+
+// I use this one pop-up to ask "are you sure?" before removing an order from the dashboard
+const confirmDialog = document.createElement("dialog");
+confirmDialog.className = "logout-dialog";
+
+const confirmTitle = document.createElement("h3");
+confirmTitle.className = "logout-dialog-title";
+
+const confirmText = document.createElement("p");
+confirmText.className = "logout-dialog-text";
+
+const confirmNoButton = document.createElement("button");
+confirmNoButton.type = "button";
+confirmNoButton.className = "logout-stay";
+confirmNoButton.textContent = "Cancel";
+
+const confirmYesButton = document.createElement("button");
+confirmYesButton.type = "button";
+confirmYesButton.className = "logout-confirm";
+
+const confirmActions = document.createElement("div");
+confirmActions.className = "logout-dialog-actions";
+confirmActions.append(confirmNoButton, confirmYesButton);
+
+confirmDialog.append(confirmTitle, confirmText, confirmActions);
+document.body.appendChild(confirmDialog);
+
+confirmNoButton.addEventListener("click", function () {
+  confirmDialog.close("no");
+});
+
+confirmYesButton.addEventListener("click", function () {
+  confirmDialog.close("yes");
+});
+
+// Clicking the dark area counts as Cancel
+confirmDialog.addEventListener("click", function (event) {
+  if (event.target === confirmDialog) confirmDialog.close("no");
+});
+
+// I show the pop-up and wait. I answer true only if staff press the confirm button.
+// Pressing Esc or clicking outside answers false.
+function askConfirm(title, text, confirmLabel) {
+  confirmTitle.textContent = title;
+  confirmText.textContent = text;
+  confirmYesButton.textContent = confirmLabel;
+
+  confirmDialog.returnValue = "";
+  confirmDialog.showModal();
+
+  return new Promise(function (resolve) {
+    confirmDialog.addEventListener(
+      "close",
+      function () {
+        resolve(confirmDialog.returnValue === "yes");
+      },
+      { once: true }
+    );
+  });
+}
+
 // ---------- Small helpers ----------
 
 // I use this to create an element with a class and some text in one line.
@@ -525,6 +587,71 @@ async function changePaid(order, select) {
   showToast("Order #" + shortId(order) + " marked as " + next);
 }
 
+// ---------- Removing delivered orders from the dashboard ----------
+
+// I never delete an order. I only mark it "archived", so the payment record and
+// photos stay safe and the customer can still see the order on their My Orders page.
+async function changeArchived(order, archive, button) {
+  if (archive) {
+    const unpaidNote = order.paid ? "" : " It is still marked Unpaid.";
+
+    const confirmed = await askConfirm(
+      "Remove this order?",
+      "Order #" + shortId(order) + " will move to the Archived tab. The customer can still see it." + unpaidNote,
+      "Yes, remove"
+    );
+
+    if (!confirmed) return;
+  }
+
+  button.disabled = true;
+
+  const { data, error } = await db
+    .from("pickup_requests")
+    .update({ archived: archive })
+    .eq("id", order.id)
+    .select("id");
+
+  button.disabled = false;
+
+  if (error || !data || data.length === 0) {
+    console.log("Archive update failed:", error ? error.message : "no row changed");
+    showToast("Could not update the order. Please try again.", true);
+    return;
+  }
+
+  order.archived = archive;
+  showToast("Order #" + shortId(order) + (archive ? " moved to Archived" : " restored to the dashboard"));
+  render();
+}
+
+// I build the row with the Remove / Restore button
+function buildArchiveRow(order, archive) {
+  const row = el("div", "archive-row");
+
+  const button = el(
+    "button",
+    archive ? "archive-btn" : "archive-btn restore",
+    archive ? "Remove from dashboard" : "Restore to dashboard"
+  );
+  button.type = "button";
+
+  button.addEventListener("click", function () {
+    changeArchived(order, archive, button);
+  });
+
+  row.append(
+    button,
+    el(
+      "span",
+      "archive-hint",
+      archive ? "It moves to the Archived tab. The customer can still see it." : "This order is archived."
+    )
+  );
+
+  return row;
+}
+
 // ---------- Building the order card ----------
 
 // I build one full order card: header, customer box, controls and items
@@ -619,6 +746,13 @@ function buildOrderCard(order) {
   statusRow.appendChild(el("span", "admin-status-label amount-label", methodText));
   body.appendChild(statusRow);
 
+  // Delivered orders can be removed from the dashboard, and archived ones can be restored
+  if (order.archived === true) {
+    body.appendChild(buildArchiveRow(order, false));
+  } else if (order.status === "delivered") {
+    body.appendChild(buildArchiveRow(order, true));
+  }
+
   // The list of items with their photos
   const itemsBox = el("div", "order-items");
   itemsBox.appendChild(el("h4", "order-items-title", "Items in this order"));
@@ -636,9 +770,20 @@ function buildOrderCard(order) {
 
 // I count how many orders have a given status ("all" counts everything)
 function countFor(filter) {
-  if (filter === "all") return orders.length;
+  if (filter === "archived") {
+    return orders.filter(function (order) {
+      return order.archived === true;
+    }).length;
+  }
 
-  return orders.filter(function (order) {
+  // Every other box only counts orders that are still on the dashboard
+  const active = orders.filter(function (order) {
+    return order.archived !== true;
+  });
+
+  if (filter === "all") return active.length;
+
+  return active.filter(function (order) {
     return order.status === filter;
   }).length;
 }
@@ -647,7 +792,10 @@ function countFor(filter) {
 function buildSummary() {
   summary.innerHTML = "";
 
-  [{ value: "all", label: "All orders" }].concat(STATUSES).forEach(function (entry) {
+  [{ value: "all", label: "All orders" }]
+    .concat(STATUSES)
+    .concat([{ value: "archived", label: "Archived" }])
+    .forEach(function (entry) {
     const card = el("button", "stat-card");
     card.type = "button";
 
@@ -674,9 +822,12 @@ function render() {
   const query = searchText.trim().toLowerCase().replace("#", "");
 
   const visible = orders.filter(function (order) {
-    const statusMatch = activeFilter === "all" || order.status === activeFilter;
+    // I keep archived orders out of every view except the Archived one
+    const archivedMatch = activeFilter === "archived" ? order.archived === true : order.archived !== true;
+    const statusMatch =
+      activeFilter === "all" || activeFilter === "archived" || order.status === activeFilter;
     const searchMatch = query === "" || searchableText(order).includes(query);
-    return statusMatch && searchMatch;
+    return archivedMatch && statusMatch && searchMatch;
   });
 
   if (visible.length === 0) {
@@ -765,7 +916,7 @@ async function fetchOrders() {
   const { data, error } = await db
     .from("pickup_requests")
     .select(
-      "id, user_id, order_no, status, created_at, delivery_time, total_amount, paid, payment_method, upi_ref, address_type, address_house, address_area, address_landmark, address_city, address_state, address_pincode, latitude, longitude, location_accuracy_m, request_items(category, quantity, photo_paths)"
+      "id, user_id, order_no, status, created_at, delivery_time, total_amount, paid, payment_method, upi_ref, archived, address_type, address_house, address_area, address_landmark, address_city, address_state, address_pincode, latitude, longitude, location_accuracy_m, request_items(category, quantity, photo_paths)"
     )
     .order("created_at", { ascending: false });
 
@@ -816,11 +967,13 @@ function watchOrders() {
           const changed =
             known.status !== payload.new.status ||
             known.payment_method !== payload.new.payment_method ||
-            known.upi_ref !== payload.new.upi_ref;
+            known.upi_ref !== payload.new.upi_ref ||
+            known.archived !== payload.new.archived;
 
           known.status = payload.new.status;
           known.payment_method = payload.new.payment_method;
           known.upi_ref = payload.new.upi_ref;
+          known.archived = payload.new.archived;
 
           if (changed) render();
         }
