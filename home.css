@@ -1230,3 +1230,9 @@ fieldset.address-box {
 input[list] {
   color-scheme: light;
 }
+.archive-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+.archive-btn { padding: 10px 18px; border: 1px solid #b91c1c; border-radius: 10px; background: #ffffff; color: #b91c1c; font: inherit; font-weight: 600; cursor: pointer; }
+.archive-btn:hover { background: #fef2f2; }
+.archive-btn.restore { border-color: #1d4ed8; color: #1d4ed8; }
+.archive-btn.restore:hover { background: #eff6ff; }
+.archive-hint { color: #64748b; font-size: 0.9rem; }
