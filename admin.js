@@ -625,16 +625,25 @@ async function changeArchived(order, archive, button) {
   render();
 }
 
+// The two small icons for the button. These are fixed pieces of my own markup,
+// never text a customer typed, so it is safe to insert them as HTML.
+const TRASH_ICON =
+  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"></path></svg>';
+
+const RESTORE_ICON =
+  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"></path></svg>';
+
 // I build the row with the Remove / Restore button
 function buildArchiveRow(order, archive) {
   const row = el("div", "archive-row");
 
-  const button = el(
-    "button",
-    archive ? "archive-btn" : "archive-btn restore",
-    archive ? "Remove from dashboard" : "Restore to dashboard"
-  );
+  const button = el("button", archive ? "archive-btn" : "archive-btn restore");
   button.type = "button";
+
+  const buttonIcon = el("span", "archive-icon");
+  buttonIcon.innerHTML = archive ? TRASH_ICON : RESTORE_ICON;
+
+  button.append(buttonIcon, el("span", "", archive ? "Remove from dashboard" : "Restore to dashboard"));
 
   button.addEventListener("click", function () {
     changeArchived(order, archive, button);
@@ -746,13 +755,6 @@ function buildOrderCard(order) {
   statusRow.appendChild(el("span", "admin-status-label amount-label", methodText));
   body.appendChild(statusRow);
 
-  // Delivered orders can be removed from the dashboard, and archived ones can be restored
-  if (order.archived === true) {
-    body.appendChild(buildArchiveRow(order, false));
-  } else if (order.status === "delivered") {
-    body.appendChild(buildArchiveRow(order, true));
-  }
-
   // The list of items with their photos
   const itemsBox = el("div", "order-items");
   itemsBox.appendChild(el("h4", "order-items-title", "Items in this order"));
@@ -762,6 +764,14 @@ function buildOrderCard(order) {
   });
 
   body.appendChild(itemsBox);
+
+  // Delivered orders can be removed from the dashboard, and archived ones can be restored.
+  // I put this last so the button sits in the bottom-left corner of the card.
+  if (order.archived === true) {
+    body.appendChild(buildArchiveRow(order, false));
+  } else if (order.status === "delivered") {
+    body.appendChild(buildArchiveRow(order, true));
+  }
   card.append(head, body);
   return card;
 }

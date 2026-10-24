@@ -915,3 +915,74 @@ main section {
 .customer-value { overflow-wrap: anywhere; }
 .customer-link { color: #1d4ed8; }
 .customer-missing, .customer-hint { color: #64748b; }
+/* The Remove / Restore row sits at the bottom-left of the order card */
+.order-card .archive-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Remove button: red gradient pill with a soft glow */
+.order-card .archive-row .archive-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f43f5e 0%, #dc2626 55%, #b91c1c 100%);
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.order-card .archive-row .archive-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(220, 38, 38, 0.45);
+  filter: brightness(1.05);
+}
+
+.order-card .archive-row .archive-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 8px rgba(220, 38, 38, 0.35);
+}
+
+.order-card .archive-row .archive-btn:focus-visible {
+  outline: 3px solid #fecaca;
+  outline-offset: 2px;
+}
+
+.order-card .archive-row .archive-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.archive-icon {
+  display: inline-flex;
+}
+
+/* Restore button: blue, so it doesn't look like a delete */
+.order-card .archive-row .archive-btn.restore {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  box-shadow: 0 6px 16px rgba(29, 78, 216, 0.3);
+}
+
+.order-card .archive-row .archive-btn.restore:hover {
+  box-shadow: 0 10px 22px rgba(29, 78, 216, 0.4);
+}
+
+.archive-hint {
+  color: #64748b;
+  font-size: 0.9rem;
+}
