@@ -1,13 +1,11 @@
-// =====================================================================
-// script.js: the customer side of the site (Request a Pickup form)
-// =====================================================================
-
 // ---------------------------------------------------------------------
-// Supabase connection
+// My Supabase connection
+// The publishable key is meant to be public. My row-level security rules
+// are what keep the data safe. I never put a service_role key in this file.
 // ---------------------------------------------------------------------
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
-// I create one Supabase client and use it for everything on this page
+
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ---------------------------------------------------------------------
@@ -34,8 +32,24 @@ const addrCity = document.getElementById("addr-city");
 const addrState = document.getElementById("addr-state");
 const addrType = document.getElementById("addr-type");
 
+// The saved-address card and its buttons (all of these are in index.html)
+const savedAddressBox = document.getElementById("address-saved");
+const savedAddressBadge = document.getElementById("address-saved-type");
+const savedAddressText = document.getElementById("address-text");
+const changeAddressButton = document.getElementById("change-address");
+const addressEdit = document.getElementById("address-edit");
+const cancelAddressButton = document.getElementById("cancel-address");
+
 // I remember who is logged in here (null means nobody)
 let currentUser = null;
+
+// The address saved for this customer (null if they have never saved one),
+// and the id of the customer I already loaded it for so I never load it twice
+let savedAddress = null;
+let savedAddressLoadedFor = null;
+
+// true while the address boxes are open for typing, false while the saved card shows
+let editingAddress = true;
 
 // ---------------------------------------------------------------------
 // Login state
@@ -52,16 +66,18 @@ function updateLoginUI() {
   if (ordersLink) ordersLink.hidden = !loggedIn;
 }
 
-// I check the session once when the page loads
+// I check the session once when the page loads, then load the saved address
 db.auth.getSession().then(function ({ data }) {
   currentUser = data.session ? data.session.user : null;
   updateLoginUI();
+  syncSavedAddress();
 });
 
 // I keep the page in sync whenever the customer logs in or out
 db.auth.onAuthStateChange(function (event, session) {
   currentUser = session ? session.user : null;
   updateLoginUI();
+  syncSavedAddress();
 });
 
 // ---------------------------------------------------------------------
@@ -197,9 +213,12 @@ logoutConfirmButton.addEventListener("click", async function () {
     console.log("Sign out failed:", error.message);
   }
 
-  // I update the page myself in case the auth listener is slow to fire
+  // I update the page myself in case the auth listener is slow to fire.
+  // I also wipe the saved address from the screen so the next person
+  // on this device never sees it.
   currentUser = null;
   updateLoginUI();
+  syncSavedAddress();
 
   logoutConfirmButton.disabled = false;
   logoutDialog.close();
@@ -237,11 +256,16 @@ let nextPhotoInputId = 1;
 
 // The pickup address is always required. The GPS pin is a bonus that helps
 // staff find the customer. If true, a customer must also tap
-// "Use my current location" before I send the request.
+// "Use my current location" before I send the request. A customer who is
+// using their saved address is then asked to tap "Change address" first.
 const REQUIRE_LOCATION = false;
 
 // The address types I accept (they match the dropdown in index.html)
 const ADDRESS_TYPES = ["Home", "Work", "Other"];
+
+// The columns I read from my customer_addresses table
+const ADDRESS_COLUMNS =
+  "address_type, address_house, address_area, address_landmark, address_city, address_state, address_pincode";
 
 // I read the valid categories once from the datalist in index.html,
 // so the HTML stays the single source of truth
@@ -257,7 +281,7 @@ const validCategories = Array.from(
 
 // I ask the browser for the customer's current position.
 // The browser shows its own "Allow location?" permission prompt here.
-// I wrap it in a Promise so I can use await in the submit handler.
+// I wrap it in a Promise so I can use await in the click handler.
 function getLocation() {
   return new Promise(function (resolve, reject) {
     // Very old browsers don't have geolocation at all
@@ -370,7 +394,7 @@ addrPincode.addEventListener("input", async function () {
 
 // I turn a GPS position into a street address using Ola Maps. The Ola Maps
 // key is a secret, so I never call Ola from the browser. I ask my own
-// Supabase function ("reverse-geocode") instead; it holds the key, calls
+// Supabase function ("super-service") instead; it holds the key, calls
 // Ola for me and sends back the address parts.
 // I return the address parts, or null if the lookup failed.
 async function lookupAddress(latitude, longitude) {
@@ -541,6 +565,196 @@ function readAddress() {
   }
 
   return address;
+}
+
+// ---------------------------------------------------------------------
+// Saved address
+// The customer fills in their address once. I save it, and from then on
+// I show it as a card with a "Change address" button, so they never have
+// to type it again. Behind the card the address boxes stay filled in with
+// the same values, so readAddress() above works the same either way.
+// ---------------------------------------------------------------------
+
+// I hide or show an element. I set the inline style as well as the hidden
+// attribute, because a CSS rule like "display: flex" on a class would
+// otherwise keep a hidden element on screen.
+function setShown(node, shown) {
+  node.hidden = !shown;
+  node.style.display = shown ? "" : "none";
+}
+
+// I turn a row from customer_addresses into the address shape the form uses
+function rowToAddress(row) {
+  return {
+    type: ADDRESS_TYPES.includes(row.address_type) ? row.address_type : "Home",
+    house: row.address_house || "",
+    area: row.address_area || "",
+    landmark: row.address_landmark || "",
+    city: row.address_city || "",
+    state: row.address_state || "",
+    pincode: row.address_pincode || "",
+  };
+}
+
+// I join the address parts into one readable line for the saved card
+function addressLine(address) {
+  const stateAndPin = [address.state, address.pincode].filter(Boolean).join(" - ");
+
+  return [
+    address.house,
+    address.area,
+    address.landmark ? "Near " + address.landmark : "",
+    address.city,
+    stateAndPin,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
+// I put an address into the boxes. Passing null empties them.
+// Setting .value in code never fires an "input" event, so this can't
+// trigger the pincode lookup by accident.
+function fillAddressFields(address) {
+  const value = address || {
+    type: "Home",
+    house: "",
+    area: "",
+    landmark: "",
+    city: "",
+    state: "",
+    pincode: "",
+  };
+
+  addrType.value = value.type;
+  addrHouse.value = value.house;
+  addrArea.value = value.area;
+  addrLandmark.value = value.landmark;
+  addrCity.value = value.city;
+  addrState.value = value.state;
+  addrPincode.value = value.pincode;
+}
+
+// I show the saved card and put the address boxes away.
+// The fieldset is also disabled, so the browser skips its "required" checks
+// while the boxes are out of sight.
+function showSavedView(address) {
+  editingAddress = false;
+
+  savedAddressBadge.textContent = address.type;
+  savedAddressText.textContent = addressLine(address);
+
+  setShown(savedAddressBox, true);
+  addressEdit.disabled = true;
+  setShown(addressEdit, false);
+  setShown(cancelAddressButton, false);
+
+  // A GPS pin from an earlier edit doesn't belong to the saved address
+  clearPinnedLocation();
+}
+
+// I show the address boxes for typing. The Cancel button only makes sense
+// when there is a saved address to go back to.
+function showEditView() {
+  editingAddress = true;
+
+  setShown(savedAddressBox, false);
+  addressEdit.disabled = false;
+  setShown(addressEdit, true);
+  setShown(cancelAddressButton, savedAddress !== null);
+}
+
+// "Change address" opens the boxes with the saved values already filled in,
+// so the customer only edits what changed
+changeAddressButton.addEventListener("click", function () {
+  showEditView();
+  addrHouse.focus();
+});
+
+// "Cancel" throws away any edits and goes back to the saved card
+cancelAddressButton.addEventListener("click", function () {
+  if (!savedAddress) return;
+
+  fillAddressFields(savedAddress);
+  showSavedView(savedAddress);
+});
+
+// I load this customer's saved address once per login
+async function loadSavedAddress(userId) {
+  if (savedAddressLoadedFor === userId) return;
+  savedAddressLoadedFor = userId;
+
+  const { data, error } = await db
+    .from("customer_addresses")
+    .select(ADDRESS_COLUMNS)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  // The customer may have logged out, or switched account, while I waited
+  if (!currentUser || currentUser.id !== userId) return;
+
+  if (error) {
+    console.log("Loading the saved address failed:", error.message);
+    savedAddressLoadedFor = null; // I allow a retry the next time the page syncs
+    return;
+  }
+
+  if (data) {
+    savedAddress = rowToAddress(data);
+    fillAddressFields(savedAddress);
+    showSavedView(savedAddress);
+  } else {
+    // First time: nothing saved yet, so I leave the boxes open for typing
+    savedAddress = null;
+    showEditView();
+  }
+}
+
+// I call this whenever the login state changes.
+// Logged out: I forget everything. Logged in: I load the saved address.
+// I wait one tick before loading, because calling Supabase straight from
+// inside its own auth listener can freeze the listener.
+function syncSavedAddress() {
+  if (!currentUser) {
+    savedAddressLoadedFor = null;
+    savedAddress = null;
+    fillAddressFields(null);
+    clearPinnedLocation();
+    showEditView();
+    return;
+  }
+
+  const userId = currentUser.id;
+
+  setTimeout(function () {
+    loadSavedAddress(userId);
+  }, 0);
+}
+
+// I save the address the customer just used, so I can show it next time.
+// One row per customer: "upsert" inserts the first time and updates after that.
+// I return true if it saved.
+async function saveAddress(userId, address) {
+  const { error } = await db.from("customer_addresses").upsert(
+    {
+      user_id: userId,
+      address_type: address.type,
+      address_house: address.house,
+      address_area: address.area,
+      address_landmark: address.landmark || null,
+      address_city: address.city,
+      address_state: address.state,
+      address_pincode: address.pincode,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" }
+  );
+
+  if (error) {
+    console.log("Saving the address failed:", error.message);
+    return false;
+  }
+
+  return true;
 }
 
 // ---------------------------------------------------------------------
@@ -1242,15 +1456,24 @@ form.addEventListener("submit", async function (event) {
     items.push({ category, quantity, photos });
   }
 
-  // Step 3: I check the pickup address. The customer typed it, or filled it
-  // in with the "Use my current location" button. It is always required.
+  // Step 3: I check the pickup address. It is either the saved address
+  // (the boxes behind the card hold the same values) or what the customer
+  // typed, or filled in with the "Use my current location" button.
+  // It is always required.
   const address = readAddress();
-  if (!address) return;
+
+  if (!address) {
+    // If the saved address turned out to be incomplete, I open the boxes
+    // so the customer can fix it
+    if (!editingAddress) showEditView();
+    return;
+  }
 
   // If the owner wants a GPS pin on every order, I check for it here.
   // The browser's permission pop-up appears when the customer taps the
   // "Use my current location" button, not at this moment.
   if (REQUIRE_LOCATION && !pinnedLocation) {
+    if (!editingAddress) showEditView();
     alert('Please tap "Use my current location" so our team can find you.');
     return;
   }
@@ -1308,10 +1531,25 @@ form.addEventListener("submit", async function (event) {
     const { error: itemsError } = await db.from("request_items").insert(itemRows);
     if (itemsError) throw itemsError;
 
+    // The request is safely saved, so now I remember this address for next time.
+    // If this step fails, the request still counts as sent.
+    const addressSaved = await saveAddress(sessionData.session.user.id, address);
+
     alert("Request sent! We will contact you soon.");
     form.reset();
     resetItemRows();
     clearPinnedLocation();
+
+    // form.reset() emptied the address boxes, so I put the address back and
+    // show it as the saved card, ready for the next request
+    if (addressSaved) savedAddress = address;
+
+    if (savedAddress) {
+      fillAddressFields(savedAddress);
+      showSavedView(savedAddress);
+    } else {
+      showEditView();
+    }
   } catch (error) {
     console.log("Sending failed:", error.message);
     alert("Sorry, we could not send your request. Please try again.");
