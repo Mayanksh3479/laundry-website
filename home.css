@@ -1185,3 +1185,44 @@ a {
     white-space: nowrap;
   }
 }
+[hidden] {
+  display: none !important;
+}
+
+fieldset.address-box {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.address-saved {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.address-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  margin-bottom: 6px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1e3a8a;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.address-text {
+  margin: 0;
+  white-space: pre-line;
+}
+.saved-address { margin-bottom: 16px; padding: 16px 18px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
+.saved-address-label { margin: 0 0 4px; font-weight: 600; }
+.saved-address-text { margin: 0 0 12px; }

@@ -907,3 +907,11 @@ main section {
   background: #b42318;
   color: white;
 }
+.customer-box { margin-bottom: 18px; padding: 16px 18px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
+.customer-title { margin: 0 0 12px; font-size: 1rem; }
+.customer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px 24px; }
+.customer-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.customer-label { font-size: 0.85rem; color: #64748b; }
+.customer-value { overflow-wrap: anywhere; }
+.customer-link { color: #1d4ed8; }
+.customer-missing, .customer-hint { color: #64748b; }

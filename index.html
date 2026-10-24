@@ -11,6 +11,8 @@
 </head>
 
 <body>
+    <!-- Header: the Log in / My Orders / Log out buttons are shown or hidden
+         by script.js, depending on whether the customer is logged in -->
     <header class="site-header">
         <div class="container header-inner">
             <a href="#home" class="brand" aria-label="Super Care Dry Cleaners, home">
@@ -27,6 +29,8 @@
                 </span>
             </a>
 
+            <!-- The highlighted link follows the scroll position (see home.js).
+                 Each href must match a section id further down -->
             <nav class="main-nav" aria-label="Main">
                 <a href="#home" class="active">Home</a>
                 <a href="#services">Services</a>
@@ -71,6 +75,7 @@
                     </div>
                 </div>
 
+                <!-- Illustration only, so it is hidden from screen readers -->
                 <div class="hero-art" aria-hidden="true">
                     <svg viewBox="0 0 520 340" role="img">
                         <circle cx="330" cy="130" r="122" fill="#dbeafe"></circle>
@@ -184,6 +189,8 @@
                 <h2>Simple &amp; Transparent</h2>
                 <p class="section-lead">Search for any item to see its rate, or browse the full list.</p>
 
+                <!-- Search box and Gents / Ladies tabs.
+                     home.js reads #price-search and the .tab buttons (data-group) -->
                 <div class="price-tools">
                     <div class="search-box">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
@@ -199,12 +206,16 @@
 
                 <p id="price-count" class="price-count" aria-live="polite"></p>
 
+                <!-- Starts empty on purpose, home.js builds the price cards
+                     from its PRICES list -->
                 <div id="price-grid" class="price-grid"></div>
 
                 <noscript><p class="price-empty">Please turn on JavaScript to see the price list.</p></noscript>
 
+                <!-- Shown by home.js when a search finds nothing -->
                 <p id="price-empty" class="price-empty" hidden>No items match your search. Try a different word, or ask us in store.</p>
 
+                <!-- Only appears when there are more rates than the first few shown -->
                 <div class="price-more-row">
                     <button type="button" id="price-more" class="btn btn-outline" hidden>Show all rates</button>
                 </div>
@@ -262,6 +273,8 @@
                 <h2>Request a Pickup</h2>
 
                 <div class="form-card">
+                    <!-- Logged-out visitors see this message, logged-in customers see the form.
+                         script.js switches between the two -->
                     <div id="login-notice" class="login-notice" hidden>
                         <p>Please log in to request a pickup.</p>
                         <a href="login.html" class="btn btn-primary">Log in or create account</a>
@@ -269,6 +282,8 @@
 
                     <form id="pickup-form" class="booking-form">
                         <label for="delivery-date">Deliver back on (date)</label>
+                        <!-- Plain text box instead of type="date" so the format is the same
+                             on every phone. script.js adds the slashes while typing -->
                         <input
                             type="text"
                             id="delivery-date"
@@ -281,14 +296,30 @@
                         >
 
                         <label for="delivery-time">Deliver back by (time)</label>
+                        <!-- Options are filled in by script.js (9:00 AM to 8:00 PM, every 30 min) -->
                         <select id="delivery-time" name="delivery_time" required>
                             <option value="">Select a time</option>
                         </select>
 
-                        <!-- ===== Pickup address (like Amazon and Flipkart) ===== -->
+                        <!-- ===== Pickup address (like Amazon and Flipkart) =====
+                             Returning customers see their saved address and a Change button.
+                             New customers, or anyone who clicks Change, see the full form below -->
                         <h3 class="items-title">Pickup address</h3>
 
-                        <div class="address-box">
+                        <!-- Saved address view. Hidden until script.js finds an address
+                             saved for this customer -->
+                        <div id="address-saved" class="address-saved" hidden>
+                            <div class="address-saved-body">
+                                <span id="address-saved-type" class="address-badge"></span>
+                                <p id="address-text" class="address-text"></p>
+                            </div>
+                            <button type="button" id="change-address" class="btn btn-outline">Change address</button>
+                        </div>
+
+                        <!-- A fieldset so script.js can switch the whole group off with one
+                             "disabled". Disabled fields are skipped by the browser's required
+                             checks, otherwise the hidden address fields would block Send Request -->
+                        <fieldset id="address-edit" class="address-box">
                             <button type="button" id="locate-btn" class="btn btn-outline locate-btn">
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg>
                                 Use my current location
@@ -297,6 +328,7 @@
                             <p id="locate-status" class="locate-status" aria-live="polite"></p>
 
                             <label for="addr-pincode">Pincode</label>
+                            <!-- Indian pincodes are 6 digits and never start with 0 -->
                             <input
                                 type="text"
                                 id="addr-pincode"
@@ -332,6 +364,7 @@
                                 required
                             >
 
+                            <!-- The only optional address field -->
                             <label for="addr-landmark">Landmark (optional)</label>
                             <input
                                 type="text"
@@ -370,8 +403,13 @@
                                 <option value="Work">Work</option>
                                 <option value="Other">Other</option>
                             </select>
-                        </div>
 
+                            <!-- Only useful when there is an old address to go back to,
+                                 so script.js shows it just for customers who already saved one -->
+                            <button type="button" id="cancel-address" class="btn btn-outline" hidden>Cancel</button>
+                        </fieldset>
+
+                        <!-- State suggestions for the State box above -->
                         <datalist id="state-list">
                             <option value="Andaman and Nicobar Islands"></option>
                             <option value="Andhra Pradesh"></option>
@@ -413,6 +451,8 @@
 
                         <h3 class="items-title">Your items</h3>
 
+                        <!-- One .item-row per kind of item. "+ Add another item" clones the
+                             first row, so keep this markup complete and clean -->
                         <div id="items">
                             <div class="item-row">
                                 <label>
@@ -427,6 +467,8 @@
                                     >
                                 </label>
 
+                                <!-- Capped at 3 because every piece needs its own photo
+                                     (MAX_QUANTITY in script.js must match the max here) -->
                                 <label>
                                     Quantity
                                     <input
@@ -439,66 +481,69 @@
                                     >
                                 </label>
 
+                                <!-- script.js adds one photo box here per quantity -->
                                 <div class="photo-slots"></div>
 
                                 <button type="button" class="remove-item btn btn-danger">Remove this item</button>
                             </div>
                         </div>
 
-                <datalist id="category-list">
-                    <option value="Gents - Coat Pant"></option>
-                    <option value="Gents - Coat Single"></option>
-                    <option value="Gents - Long Coat"></option>
-                    <option value="Gents - Sherwani"></option>
-                    <option value="Gents - Jersey Half"></option>
-                    <option value="Gents - Jersey Full"></option>
-                    <option value="Gents - Jacket"></option>
-                    <option value="Gents - Jacket With Cap"></option>
-                    <option value="Gents - Jacket Reversible"></option>
-                    <option value="Gents - Jacket Leather"></option>
-                    <option value="Gents - Waist Coat"></option>
-                    <option value="Gents - Sweater Zipper"></option>
-                    <option value="Gents - Hoodies Zipper"></option>
-                    <option value="Gents - Pants"></option>
-                    <option value="Gents - Shirt"></option>
-                    <option value="Gents - T-Shirt"></option>
-                    <option value="Gents - Kurta Pajama"></option>
-                    <option value="Gents - Track Suit"></option>
-                    <option value="Gents - Gram Pajama"></option>
-                    <option value="Gents - Sports Shoes"></option>
-                    <option value="Gents - School Bag"></option>
-                    <option value="Gents - Office Bag"></option>
-                    <option value="Gents - Muffler"></option>
-                    <option value="Gents - Tie"></option>
-                    <option value="Gents - Cap"></option>
-                    <option value="Gents - Mask"></option>
-                    <option value="Gents - Lohi"></option>
-                    <option value="Ladies - Suit 3p"></option>
-                    <option value="Ladies - Suit Light"></option>
-                    <option value="Ladies - Suit (Light Work)"></option>
-                    <option value="Ladies - Suit Single"></option>
-                    <option value="Ladies - Lehanga Choli Dupatta"></option>
-                    <option value="Ladies - Lehanga Bridal"></option>
-                    <option value="Ladies - Dupatta"></option>
-                    <option value="Ladies - Western Dress"></option>
-                    <option value="Ladies - Top Single"></option>
-                    <option value="Ladies - Top Party Wear"></option>
-                    <option value="Ladies - Dress Heavy"></option>
-                    <option value="Ladies - Jeans"></option>
-                    <option value="Ladies - Shawl"></option>
-                    <option value="Ladies - Pashmina Shawl"></option>
-                    <option value="Ladies - Stole"></option>
-                    <option value="Ladies - Saree"></option>
-                    <option value="Ladies - Blouse"></option>
-                    <option value="Ladies - Long Kurta Boolan"></option>
-                    <option value="Ladies - Jersey Half"></option>
-                    <option value="Ladies - Jersey Full"></option>
-                    <option value="Ladies - Coat Pant"></option>
-                    <option value="Ladies - Gown"></option>
-                    <option value="Ladies - Gown Heavy"></option>
-                    <option value="Ladies - Frock"></option>
-                    <option value="Ladies - Pullover &amp; Cardigan"></option>
-                </datalist>
+                        <!-- script.js treats these options as the only valid categories,
+                             so whatever the customer types has to match one exactly -->
+                        <datalist id="category-list">
+                            <option value="Gents - Coat Pant"></option>
+                            <option value="Gents - Coat Single"></option>
+                            <option value="Gents - Long Coat"></option>
+                            <option value="Gents - Sherwani"></option>
+                            <option value="Gents - Jersey Half"></option>
+                            <option value="Gents - Jersey Full"></option>
+                            <option value="Gents - Jacket"></option>
+                            <option value="Gents - Jacket With Cap"></option>
+                            <option value="Gents - Jacket Reversible"></option>
+                            <option value="Gents - Jacket Leather"></option>
+                            <option value="Gents - Waist Coat"></option>
+                            <option value="Gents - Sweater Zipper"></option>
+                            <option value="Gents - Hoodies Zipper"></option>
+                            <option value="Gents - Pants"></option>
+                            <option value="Gents - Shirt"></option>
+                            <option value="Gents - T-Shirt"></option>
+                            <option value="Gents - Kurta Pajama"></option>
+                            <option value="Gents - Track Suit"></option>
+                            <option value="Gents - Gram Pajama"></option>
+                            <option value="Gents - Sports Shoes"></option>
+                            <option value="Gents - School Bag"></option>
+                            <option value="Gents - Office Bag"></option>
+                            <option value="Gents - Muffler"></option>
+                            <option value="Gents - Tie"></option>
+                            <option value="Gents - Cap"></option>
+                            <option value="Gents - Mask"></option>
+                            <option value="Gents - Lohi"></option>
+                            <option value="Ladies - Suit 3p"></option>
+                            <option value="Ladies - Suit Light"></option>
+                            <option value="Ladies - Suit (Light Work)"></option>
+                            <option value="Ladies - Suit Single"></option>
+                            <option value="Ladies - Lehanga Choli Dupatta"></option>
+                            <option value="Ladies - Lehanga Bridal"></option>
+                            <option value="Ladies - Dupatta"></option>
+                            <option value="Ladies - Western Dress"></option>
+                            <option value="Ladies - Top Single"></option>
+                            <option value="Ladies - Top Party Wear"></option>
+                            <option value="Ladies - Dress Heavy"></option>
+                            <option value="Ladies - Jeans"></option>
+                            <option value="Ladies - Shawl"></option>
+                            <option value="Ladies - Pashmina Shawl"></option>
+                            <option value="Ladies - Stole"></option>
+                            <option value="Ladies - Saree"></option>
+                            <option value="Ladies - Blouse"></option>
+                            <option value="Ladies - Long Kurta Boolan"></option>
+                            <option value="Ladies - Jersey Half"></option>
+                            <option value="Ladies - Jersey Full"></option>
+                            <option value="Ladies - Coat Pant"></option>
+                            <option value="Ladies - Gown"></option>
+                            <option value="Ladies - Gown Heavy"></option>
+                            <option value="Ladies - Frock"></option>
+                            <option value="Ladies - Pullover &amp; Cardigan"></option>
+                        </datalist>
 
                         <div class="form-actions">
                             <button type="button" id="add-item" class="btn btn-outline">+ Add another item</button>
@@ -565,6 +610,8 @@
         </div>
     </footer>
 
+    <!-- Order matters: the Supabase library has to load first because script.js
+         uses it straight away. home.js (price list, nav highlight) is independent -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="script.js"></script>
     <script src="home.js"></script>
