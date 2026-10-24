@@ -2,6 +2,12 @@
 // Super Care staff dashboard (admin.js)
 // ===================================================================
 
+// ---------------------------------------------------------------------------
+// Staff dashboard for Super Care Dry Cleaners.
+// Lets staff view all orders, update status / amount / payment, archive
+// delivered orders, and see customer details and pickup location.
+// ---------------------------------------------------------------------------
+
 // I connect to my Supabase project. The publishable key is meant to be public,
 // my row-level security rules are what keep the data safe.
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
@@ -9,22 +15,31 @@ const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// If someone is not signed in, I send them to this page
+// ---------- Configuration ----------
+
+// Login page used when staff log out manually
 const LOGIN_PAGE = "login.html";
 
-// This is the private bucket with the customers' item photos.
-// I make each photo link valid for one hour.
+// Login page used when a logged-out visitor opens the dashboard.
+// The ?next=admin.html part tells login.js to send staff back here after login.
+// Kept separate from LOGIN_PAGE on purpose: after a manual logout we do NOT want
+// the next person who logs in on this device (e.g. a customer) to be sent to
+// the staff page.
+const LOGIN_RETURN_PAGE = "login.html?next=admin.html";
+
+// Private storage bucket holding the customers' item photos.
+// Photos are only reachable through signed links that expire after one hour.
 const PHOTO_BUCKET = "request-photos";
 const PHOTO_LINK_SECONDS = 3600;
 
-// These are the profile columns I read for each customer.
-// If my profiles table uses different column names, this is the only line I change.
+// Profile columns read for each customer.
+// If the profiles table uses different column names, this is the only line to change.
 const PROFILE_COLUMNS = "id, full_name, phone, email";
 
-// I ask for customers in small groups so the request address never gets too long
+// Customers are fetched in small groups so the request URL never gets too long
 const PROFILE_CHUNK_SIZE = 100;
 
-// The statuses staff can pick, in the order the work happens
+// Statuses staff can pick, in the order the work happens
 const STATUSES = [
   { value: "pending", label: "Pending" },
   { value: "picked_up", label: "Picked up" },
@@ -33,7 +48,9 @@ const STATUSES = [
   { value: "delivered", label: "Delivered" },
 ];
 
-// I grab every element I need from admin.html once, here at the top
+// ---------- DOM references ----------
+
+// Grab every element needed from admin.html once, at the top
 const adminMessage = document.getElementById("admin-message");
 const adminTools = document.getElementById("admin-tools");
 const adminList = document.getElementById("admin-list");
@@ -42,7 +59,9 @@ const searchInput = document.getElementById("search");
 const logoutButton = document.getElementById("logout-btn");
 const toast = document.getElementById("toast");
 
-// This is the page's memory: the orders, their photo links, and what staff are looking at
+// ---------- Page state ----------
+
+// In-memory state: the orders, their signed photo links, and the current view
 let orders = [];
 let photoUrls = {};
 let activeFilter = "all";
@@ -52,7 +71,7 @@ let reloadTimer = null;
 
 // ---------- Full-size photo viewer ----------
 
-// I build the photo viewer once and reuse it for every photo
+// Build the photo viewer once and reuse it for every photo
 const lightbox = document.createElement("dialog");
 lightbox.className = "photo-lightbox";
 
@@ -72,12 +91,12 @@ lightboxClose.addEventListener("click", function () {
   lightbox.close();
 });
 
-// I also close the viewer when someone clicks the dark area around the photo
+// Also close the viewer when the dark area around the photo is clicked
 lightbox.addEventListener("click", function (event) {
   if (event.target === lightbox) lightbox.close();
 });
 
-// I call this when staff tap a thumbnail
+// Called when staff tap a thumbnail
 function openPhoto(url) {
   lightboxImage.src = url;
   lightbox.showModal();
@@ -85,7 +104,7 @@ function openPhoto(url) {
 
 // ---------- Log out confirmation pop-up ----------
 
-// I ask before logging out so an accidental tap doesn't sign staff out
+// Ask before logging out so an accidental tap doesn't sign staff out
 const logoutDialog = document.createElement("dialog");
 logoutDialog.className = "logout-dialog";
 
@@ -118,13 +137,15 @@ logoutStayButton.addEventListener("click", function () {
   logoutDialog.close();
 });
 
+// Clicking the dark area counts as "Stay logged in"
 logoutDialog.addEventListener("click", function (event) {
   if (event.target === logoutDialog) logoutDialog.close();
 });
 
-// ---------- Confirmation pop-up ----------
+// ---------- Generic confirmation pop-up ----------
 
-// I use this one pop-up to ask "are you sure?" before removing an order from the dashboard
+// One reusable pop-up for "are you sure?" questions,
+// e.g. before removing an order from the dashboard
 const confirmDialog = document.createElement("dialog");
 confirmDialog.className = "logout-dialog";
 
@@ -163,13 +184,15 @@ confirmDialog.addEventListener("click", function (event) {
   if (event.target === confirmDialog) confirmDialog.close("no");
 });
 
-// I show the pop-up and wait. I answer true only if staff press the confirm button.
-// Pressing Esc or clicking outside answers false.
+// Show the pop-up and wait for an answer.
+// Resolves true only if staff press the confirm button;
+// Esc or clicking outside resolves false.
 function askConfirm(title, text, confirmLabel) {
   confirmTitle.textContent = title;
   confirmText.textContent = text;
   confirmYesButton.textContent = confirmLabel;
 
+  // Reset so a previous answer can't leak into this one
   confirmDialog.returnValue = "";
   confirmDialog.showModal();
 
@@ -186,8 +209,8 @@ function askConfirm(title, text, confirmLabel) {
 
 // ---------- Small helpers ----------
 
-// I use this to create an element with a class and some text in one line.
-// I always set text with textContent, so customer details can never inject HTML.
+// Create an element with a class and some text in one line.
+// Text is always set with textContent, so customer details can never inject HTML.
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -195,7 +218,7 @@ function el(tag, className, text) {
   return node;
 }
 
-// I show a short message at the bottom and hide it again after about 3 seconds
+// Show a short message at the bottom and hide it again after about 3 seconds
 function showToast(text, isError) {
   toast.textContent = text;
   toast.className = "toast" + (isError ? " error" : "");
@@ -207,13 +230,13 @@ function showToast(text, isError) {
   }, 3200);
 }
 
-// I use this for the big message at the top, like "No orders have been placed yet"
+// Big message at the top of the page, e.g. "No orders have been placed yet"
 function showMessage(text) {
   adminMessage.textContent = text;
   adminMessage.hidden = false;
 }
 
-// I show dates the Indian way, like 18 Oct 2026
+// Format dates the Indian way, e.g. 18 Oct 2026
 function formatDate(isoText) {
   if (!isoText) return "-";
 
@@ -224,7 +247,7 @@ function formatDate(isoText) {
   });
 }
 
-// Same as above, but with the time too
+// Same as formatDate, but with the time as well
 function formatDateTime(isoText) {
   if (!isoText) return "-";
 
@@ -237,7 +260,8 @@ function formatDateTime(isoText) {
   });
 }
 
-// I turn the order number into the short code staff see, like SC1001
+// Short order code staff see, e.g. SC1001.
+// Falls back to the first 8 characters of the id if there is no order number.
 function shortId(order) {
   if (order.order_no !== null && order.order_no !== undefined) {
     return "SC" + (1000 + Number(order.order_no));
@@ -246,7 +270,7 @@ function shortId(order) {
   return order.id.slice(0, 8).toUpperCase();
 }
 
-// I turn a status value like "picked_up" into its label, "Picked up"
+// Turn a status value like "picked_up" into its label, "Picked up"
 function statusLabel(value) {
   const found = STATUSES.find(function (status) {
     return status.value === value;
@@ -255,7 +279,7 @@ function statusLabel(value) {
   return found ? found.label : value;
 }
 
-// I split "Gents - Shirt" into the group (Gents) and the item name (Shirt)
+// Split "Gents - Shirt" into the group (Gents) and the item name (Shirt)
 function splitCategory(category) {
   const parts = String(category).split(" - ");
 
@@ -268,19 +292,19 @@ function splitCategory(category) {
 
 // ---------- Customer details and pickup location ----------
 
-// I show a phone number as +91 98765 43210 style text when it has 10 digits
+// Display a 10-digit phone number as "+91 9876543210"
 function formatPhone(phone) {
   const digits = String(phone).replace(/\D/g, "");
   return digits.length === 10 ? "+91 " + digits : String(phone);
 }
 
-// I build the tap-to-call link. Customers type 10 digits at signup, so I add +91.
+// Build the tap-to-call link. Customers type 10 digits at signup, so +91 is added.
 function phoneHref(phone) {
   const digits = String(phone).replace(/\D/g, "");
   return "tel:" + (digits.length === 10 ? "+91" + digits : digits);
 }
 
-// I only treat an order as having a location when both numbers are real numbers
+// An order only counts as having a location when both coordinates are real numbers
 function hasLocation(order) {
   return (
     order.latitude !== null &&
@@ -292,17 +316,17 @@ function hasLocation(order) {
   );
 }
 
-// I build the Google Maps link that drops a pin on the customer's location
+// Google Maps link that drops a pin on the customer's shared location
 function mapsUrl(order) {
   return "https://www.google.com/maps?q=" + Number(order.latitude) + "," + Number(order.longitude);
 }
 
-// I use this grey text when a detail is missing, for example older customers with no phone saved
+// Grey placeholder text for a missing detail (e.g. older customers with no phone saved)
 function missingText(text) {
   return el("span", "customer-missing", text);
 }
 
-// I make a link. External links open in a new tab and can't see my page.
+// Build a link. External links open in a new tab and can't access this page.
 function linkNode(text, href, newTab) {
   const link = el("a", "customer-link", text);
   link.href = href;
@@ -315,7 +339,7 @@ function linkNode(text, href, newTab) {
   return link;
 }
 
-// I build one labelled detail, like "Phone" with the number under it
+// Build one labelled detail, e.g. "Phone" with the number underneath
 function customerField(label, content) {
   const field = el("div", "customer-field");
   field.appendChild(el("span", "customer-label", label));
@@ -327,7 +351,7 @@ function customerField(label, content) {
   return field;
 }
 
-// I show the map link, plus how accurate the phone said the location is
+// Show the map link, plus how accurate the phone reported the location to be
 function locationContent(order) {
   if (!hasLocation(order)) return missingText("Not shared");
 
@@ -343,7 +367,7 @@ function locationContent(order) {
   return wrap;
 }
 
-// I join the typed address parts into one readable line
+// Join the typed address parts into one readable line
 function addressText(order) {
   const stateAndPin = [order.address_state, order.address_pincode].filter(Boolean).join(" - ");
 
@@ -361,7 +385,7 @@ function addressText(order) {
   return (order.address_type ? order.address_type + ": " : "") + line;
 }
 
-// I show the typed address with a link that searches it on Google Maps
+// Show the typed address with a link that searches it on Google Maps
 function addressContent(order) {
   const text = addressText(order);
   if (!text) return missingText("Not provided");
@@ -378,7 +402,7 @@ function addressContent(order) {
   return wrap;
 }
 
-// I build the "Customer" box that sits at the top of every order card
+// Build the "Customer" box at the top of every order card
 function buildCustomerBox(order) {
   const customer = order.customer || {};
 
@@ -412,8 +436,8 @@ function buildCustomerBox(order) {
   return box;
 }
 
-// I join everything staff might search for into one lowercase line.
-// That lets me search by order number, name, phone or email with the same box.
+// Join everything staff might search for into one lowercase string,
+// so one search box covers order number, name, phone and email
 function searchableText(order) {
   const customer = order.customer || {};
 
@@ -425,14 +449,14 @@ function searchableText(order) {
 
 // ---------- Order card pieces ----------
 
-// I build one grey block in the card header, like "Pieces" with its number
+// Build one grey block in the card header, e.g. "Pieces" with its number
 function headerBlock(label, value) {
   const block = el("div", "order-head-block");
   block.append(el("span", "order-head-label", label), el("span", "order-head-value", value));
   return block;
 }
 
-// I build a clickable photo thumbnail that opens the viewer
+// Build a clickable photo thumbnail that opens the full-size viewer
 function buildPhotoButton(url, className, altText) {
   const button = el("button", className);
   button.type = "button";
@@ -441,7 +465,7 @@ function buildPhotoButton(url, className, altText) {
   const image = el("img");
   image.src = url;
   image.alt = altText;
-  image.loading = "lazy";
+  image.loading = "lazy"; // don't load photos until they scroll into view
 
   button.appendChild(image);
 
@@ -452,9 +476,11 @@ function buildPhotoButton(url, className, altText) {
   return button;
 }
 
-// I build one item row: first photo, name, group, quantity and any extra photos
+// Build one item row: first photo, name, group, quantity and any extra photos
 function buildItem(item) {
   const parts = splitCategory(item.category);
+
+  // Convert stored photo paths into signed links (skip any that failed to sign)
   const urls = (item.photo_paths || [])
     .map(function (path) {
       return photoUrls[path];
@@ -466,7 +492,7 @@ function buildItem(item) {
   if (urls.length > 0) {
     row.appendChild(buildPhotoButton(urls[0], "item-photo", parts.name));
   } else {
-    // No photo, so I show the first letter of the item instead
+    // No photo: show the first letter of the item name instead
     row.appendChild(el("div", "item-photo-empty", parts.name.charAt(0).toUpperCase()));
   }
 
@@ -479,6 +505,7 @@ function buildItem(item) {
 
   details.appendChild(el("div", "item-qty", "Qty: " + item.quantity));
 
+  // Any photos after the first are shown as small thumbnails
   if (urls.length > 1) {
     const extra = el("div", "item-extra");
 
@@ -495,14 +522,14 @@ function buildItem(item) {
 
 // ---------- Saving changes to Supabase ----------
 
-// When staff change the status, I save it. If saving fails, I put the old value back.
+// Save a new status. If saving fails, restore the previous value in the dropdown.
 async function changeStatus(order, select) {
   const previous = order.status;
   const next = select.value;
 
   if (next === previous) return;
 
-  select.disabled = true;
+  select.disabled = true; // block repeat changes while saving
 
   const { data, error } = await db
     .from("pickup_requests")
@@ -512,7 +539,8 @@ async function changeStatus(order, select) {
 
   select.disabled = false;
 
-  // An update that changes zero rows means my security rules blocked it, so I treat that as a failure too
+  // An update that changes zero rows means a security rule (RLS) blocked it,
+  // so treat that as a failure too
   if (error || !data || data.length === 0) {
     console.log("Status update failed:", error ? error.message : "no row changed");
     select.value = previous;
@@ -525,13 +553,14 @@ async function changeStatus(order, select) {
   render();
 }
 
-// I save the amount when staff finish typing it. Empty means "not priced yet".
+// Save the amount when staff finish typing it. An empty box means "not priced yet".
 async function changeAmount(order, input) {
   const raw = input.value.trim();
   const value = raw === "" ? null : Number(raw);
   const previous =
     order.total_amount === null || order.total_amount === undefined ? "" : order.total_amount;
 
+  // Reject anything that isn't a non-negative number
   if (value !== null && (!Number.isFinite(value) || value < 0)) {
     input.value = previous;
     showToast("Enter a valid amount.", true);
@@ -559,7 +588,7 @@ async function changeAmount(order, input) {
   showToast("Amount saved for order #" + shortId(order));
 }
 
-// I save Paid or Unpaid the same way I save the status
+// Save Paid / Unpaid the same way the status is saved
 async function changePaid(order, select) {
   const previous = order.paid ? "paid" : "unpaid";
   const next = select.value;
@@ -589,9 +618,10 @@ async function changePaid(order, select) {
 
 // ---------- Removing delivered orders from the dashboard ----------
 
-// I never delete an order. I only mark it "archived", so the payment record and
-// photos stay safe and the customer can still see the order on their My Orders page.
+// Orders are never deleted, only flagged "archived". That keeps the payment
+// record and photos safe, and the customer can still see the order on My Orders.
 async function changeArchived(order, archive, button) {
+  // Only ask for confirmation when removing; restoring is harmless
   if (archive) {
     const unpaidNote = order.paid ? "" : " It is still marked Unpaid.";
 
@@ -625,15 +655,15 @@ async function changeArchived(order, archive, button) {
   render();
 }
 
-// The two small icons for the button. These are fixed pieces of my own markup,
-// never text a customer typed, so it is safe to insert them as HTML.
+// Icons for the Remove / Restore button. These are fixed markup written here,
+// never text a customer typed, so inserting them as HTML is safe.
 const TRASH_ICON =
   '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"></path></svg>';
 
 const RESTORE_ICON =
   '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"></path></svg>';
 
-// I build the row with the Remove / Restore button
+// Build the row with the Remove / Restore button
 function buildArchiveRow(order, archive) {
   const row = el("div", "archive-row");
 
@@ -663,7 +693,7 @@ function buildArchiveRow(order, archive) {
 
 // ---------- Building the order card ----------
 
-// I build one full order card: header, customer box, controls and items
+// Build one full order card: header, customer box, controls and items
 function buildOrderCard(order) {
   const items = order.request_items || [];
   const totalPieces = items.reduce(function (sum, item) {
@@ -672,7 +702,7 @@ function buildOrderCard(order) {
 
   const card = el("article", "order-card");
 
-  // The grey header strip with the dates, piece count and order number
+  // Grey header strip with the dates, piece count and order number
   const head = el("div", "order-head");
   head.append(
     headerBlock("Order placed", formatDate(order.created_at)),
@@ -686,15 +716,15 @@ function buildOrderCard(order) {
 
   const body = el("div", "order-body");
 
-  // I put the customer details first so staff see who and where before anything else
+  // Customer details go first so staff see who and where before anything else
   body.appendChild(buildCustomerBox(order));
 
-  // Status dropdown
+  // --- Status dropdown ---
   const statusRow = el("div", "admin-status-row");
   statusRow.appendChild(el("span", "admin-status-label", "Order status"));
 
   const select = el("select", "status-select");
-  select.dataset.status = order.status;
+  select.dataset.status = order.status; // lets CSS colour the dropdown by status
 
   STATUSES.forEach(function (status) {
     const option = el("option", "", status.label);
@@ -709,7 +739,7 @@ function buildOrderCard(order) {
 
   statusRow.appendChild(select);
 
-  // Amount box
+  // --- Amount box ---
   const amountLabel = el("span", "admin-status-label amount-label", "Amount (₹)");
   const amountInput = el("input", "amount-input");
   amountInput.type = "number";
@@ -719,11 +749,12 @@ function buildOrderCard(order) {
   amountInput.value =
     order.total_amount === null || order.total_amount === undefined ? "" : order.total_amount;
 
+  // "change" fires when the box loses focus after an edit, so we save once, not per keystroke
   amountInput.addEventListener("change", function () {
     changeAmount(order, amountInput);
   });
 
-  // Paid / Unpaid dropdown
+  // --- Paid / Unpaid dropdown ---
   const paidLabel = el("span", "admin-status-label amount-label", "Payment");
   const paidSelect = el("select", "amount-input");
 
@@ -744,7 +775,7 @@ function buildOrderCard(order) {
 
   statusRow.append(amountLabel, amountInput, paidLabel, paidSelect);
 
-  // I show how the customer chose to pay, and their UPI reference if they sent one
+  // Show how the customer chose to pay, plus their UPI reference if they sent one
   const methodNames = { cod: "Cash on delivery", upi: "UPI" };
   let methodText = "Method: " + (methodNames[order.payment_method] || "not chosen yet");
 
@@ -755,7 +786,7 @@ function buildOrderCard(order) {
   statusRow.appendChild(el("span", "admin-status-label amount-label", methodText));
   body.appendChild(statusRow);
 
-  // The list of items with their photos
+  // --- Items with their photos ---
   const itemsBox = el("div", "order-items");
   itemsBox.appendChild(el("h4", "order-items-title", "Items in this order"));
 
@@ -765,20 +796,21 @@ function buildOrderCard(order) {
 
   body.appendChild(itemsBox);
 
-  // Delivered orders can be removed from the dashboard, and archived ones can be restored.
-  // I put this last so the button sits in the bottom-left corner of the card.
+  // Delivered orders can be removed from the dashboard; archived ones can be restored.
+  // Added last so the button sits in the bottom-left corner of the card.
   if (order.archived === true) {
     body.appendChild(buildArchiveRow(order, false));
   } else if (order.status === "delivered") {
     body.appendChild(buildArchiveRow(order, true));
   }
+
   card.append(head, body);
   return card;
 }
 
 // ---------- Summary boxes and the order list ----------
 
-// I count how many orders have a given status ("all" counts everything)
+// Count orders for a given filter ("all" = every active order)
 function countFor(filter) {
   if (filter === "archived") {
     return orders.filter(function (order) {
@@ -786,7 +818,7 @@ function countFor(filter) {
     }).length;
   }
 
-  // Every other box only counts orders that are still on the dashboard
+  // Every other box only counts orders still on the dashboard
   const active = orders.filter(function (order) {
     return order.archived !== true;
   });
@@ -798,41 +830,42 @@ function countFor(filter) {
   }).length;
 }
 
-// I draw the row of count boxes at the top. Clicking one filters the list.
+// Draw the row of count boxes at the top. Clicking one filters the list below.
 function buildSummary() {
   summary.innerHTML = "";
 
+  // Order of boxes: All orders, each status, then Archived
   [{ value: "all", label: "All orders" }]
     .concat(STATUSES)
     .concat([{ value: "archived", label: "Archived" }])
     .forEach(function (entry) {
-    const card = el("button", "stat-card");
-    card.type = "button";
+      const card = el("button", "stat-card");
+      card.type = "button";
 
-    if (entry.value === activeFilter) card.classList.add("active");
+      if (entry.value === activeFilter) card.classList.add("active");
 
-    card.append(el("span", "stat-count", String(countFor(entry.value))), el("span", "stat-label", entry.label));
+      card.append(el("span", "stat-count", String(countFor(entry.value))), el("span", "stat-label", entry.label));
 
-    card.addEventListener("click", function () {
-      activeFilter = entry.value;
-      render();
+      card.addEventListener("click", function () {
+        activeFilter = entry.value;
+        render();
+      });
+
+      summary.appendChild(card);
     });
-
-    summary.appendChild(card);
-  });
 }
 
-// I redraw the whole page from the data in memory. I call this after every change.
+// Redraw the whole page from the data in memory. Called after every change.
 function render() {
   adminTools.hidden = false;
   buildSummary();
   adminList.innerHTML = "";
 
-  // I drop a leading # so "#SC1001" and "SC1001" both work
+  // Drop a leading # so "#SC1001" and "SC1001" both work
   const query = searchText.trim().toLowerCase().replace("#", "");
 
   const visible = orders.filter(function (order) {
-    // I keep archived orders out of every view except the Archived one
+    // Archived orders only appear in the Archived view
     const archivedMatch = activeFilter === "archived" ? order.archived === true : order.archived !== true;
     const statusMatch =
       activeFilter === "all" || activeFilter === "archived" || order.status === activeFilter;
@@ -840,6 +873,7 @@ function render() {
     return archivedMatch && statusMatch && searchMatch;
   });
 
+  // Nothing to show for this filter / search
   if (visible.length === 0) {
     const empty = el("div", "orders-empty");
     empty.appendChild(el("div", "orders-empty-icon", "🧺"));
@@ -855,8 +889,8 @@ function render() {
 
 // ---------- Loading data from Supabase ----------
 
-// I ask Supabase for a one-hour link for every photo, in one request.
-// The bucket is private, so photos only open through these signed links.
+// Request a one-hour signed link for every photo in a single call.
+// The bucket is private, so photos only open through these links.
 async function signPhotos(list) {
   const paths = [];
 
@@ -874,11 +908,13 @@ async function signPhotos(list) {
     .from(PHOTO_BUCKET)
     .createSignedUrls(paths, PHOTO_LINK_SECONDS);
 
+  // If signing fails, the dashboard still works; photos just won't show
   if (error || !data) {
     console.log("Photo links failed:", error ? error.message : "no data");
     return {};
   }
 
+  // Build a lookup of storage path -> signed URL
   const map = {};
 
   data.forEach(function (entry) {
@@ -888,9 +924,10 @@ async function signPhotos(list) {
   return map;
 }
 
-// I load the name, phone and email for every customer who has an order.
-// I do this as a separate request so that if it ever fails, the orders still show.
+// Load name, phone and email for every customer who has an order.
+// Done as a separate request so orders still show even if this ever fails.
 async function fetchProfiles(list) {
+  // Unique, non-empty customer ids
   const ids = Array.from(
     new Set(
       list
@@ -903,6 +940,7 @@ async function fetchProfiles(list) {
 
   const map = {};
 
+  // Fetch in chunks to keep the request URL short
   for (let start = 0; start < ids.length; start += PROFILE_CHUNK_SIZE) {
     const chunk = ids.slice(start, start + PROFILE_CHUNK_SIZE);
 
@@ -921,14 +959,15 @@ async function fetchProfiles(list) {
   return map;
 }
 
-// I load every order with its items and pickup location, then attach each customer's details
+// Load every order with its items and pickup location,
+// then attach each customer's details
 async function fetchOrders() {
   const { data, error } = await db
     .from("pickup_requests")
     .select(
       "id, user_id, order_no, status, created_at, delivery_time, total_amount, paid, payment_method, upi_ref, archived, address_type, address_house, address_area, address_landmark, address_city, address_state, address_pincode, latitude, longitude, location_accuracy_m, request_items(category, quantity, photo_paths)"
     )
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }); // newest first
 
   if (error) throw error;
 
@@ -942,7 +981,7 @@ async function fetchOrders() {
   return list;
 }
 
-// I reload everything quietly in the background, and tell staff if a new order arrived
+// Quietly reload everything in the background and tell staff if a new order arrived
 async function refreshOrders() {
   try {
     const data = await fetchOrders();
@@ -958,13 +997,14 @@ async function refreshOrders() {
   }
 }
 
-// A new order can arrive as several quick changes, so I wait a moment and reload once
+// A new order can arrive as several quick database changes,
+// so wait a moment and reload once (debounce)
 function scheduleRefresh() {
   clearTimeout(reloadTimer);
   reloadTimer = setTimeout(refreshOrders, 800);
 }
 
-// I listen for live changes so the dashboard updates without a page refresh
+// Listen for live changes so the dashboard updates without a page refresh
 function watchOrders() {
   db.channel("staff-orders")
     .on("postgres_changes", { event: "*", schema: "public", table: "pickup_requests" }, function (payload) {
@@ -974,6 +1014,7 @@ function watchOrders() {
         });
 
         if (known) {
+          // Only re-render if something staff can see actually changed
           const changed =
             known.status !== payload.new.status ||
             known.payment_method !== payload.new.payment_method ||
@@ -991,7 +1032,7 @@ function watchOrders() {
         return;
       }
 
-      // A new or deleted order means I reload the full list
+      // A new or deleted order means reload the full list
       scheduleRefresh();
     })
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "request_items" }, scheduleRefresh)
@@ -1000,16 +1041,20 @@ function watchOrders() {
 
 // ---------- Page events ----------
 
-// I filter the list as staff type in the search box
+// Filter the list as staff type in the search box
 searchInput.addEventListener("input", function () {
   searchText = searchInput.value;
   render();
 });
 
+// Open the "Log out?" pop-up
 logoutButton.addEventListener("click", function () {
   logoutDialog.showModal();
 });
 
+// Confirmed logout: sign out, then go to the plain login page.
+// Intentionally uses LOGIN_PAGE (no ?next=) so the next person to log in
+// on this device is not sent to the staff dashboard.
 logoutConfirmButton.addEventListener("click", async function () {
   logoutConfirmButton.disabled = true;
 
@@ -1024,24 +1069,29 @@ logoutConfirmButton.addEventListener("click", async function () {
 
 // ---------- Start ----------
 
-// First I check the person is signed in AND is listed in staff_members.
-// Only then do I load any orders.
+// Startup order:
+//   1. Check the visitor is signed in.
+//   2. Check they are listed in staff_members.
+//   3. Only then load any orders.
 async function start() {
   const { data: sessionData } = await db.auth.getSession();
 
+  // Not signed in: go to login and return here afterwards (?next=admin.html)
   if (!sessionData.session) {
-    window.location.replace(LOGIN_PAGE);
+    window.location.replace(LOGIN_RETURN_PAGE);
     return;
   }
 
   const userId = sessionData.session.user.id;
 
+  // Signed in, but are they staff?
   const { data: staffRow, error: staffError } = await db
     .from("staff_members")
     .select("user_id")
     .eq("user_id", userId)
     .maybeSingle();
 
+  // Customers (or a failed lookup) get a message and no order data
   if (staffError || !staffRow) {
     showMessage("This page is only for staff accounts.");
     return;
@@ -1050,11 +1100,12 @@ async function start() {
   orders = await fetchOrders();
   photoUrls = await signPhotos(orders);
 
+  // Staff with no orders yet: show the tools and an empty-state message
   if (orders.length === 0) {
     adminTools.hidden = false;
     buildSummary();
     showMessage("No orders have been placed yet.");
-    watchOrders();
+    watchOrders(); // still listen, so the first order appears live
     return;
   }
 
@@ -1062,6 +1113,7 @@ async function start() {
   watchOrders();
 }
 
+// Catch any unexpected startup error so staff see a message instead of a blank page
 start().catch(function (error) {
   console.log("Dashboard failed:", error.message);
   showMessage("Sorry, something went wrong. Please refresh the page.");

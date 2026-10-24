@@ -1,11 +1,40 @@
+
+
+// ---------------------------------------------------------------------------
+// login.js
+// Handles login, sign-up and "forgot password" for the customer auth page.
+// ---------------------------------------------------------------------------
+
+// I connect to my Supabase project. The publishable key is meant to be public,
+// my row-level security rules are what keep the data safe.
+
 const SUPABASE_URL = "https://ydcawwkjybtnhicwfqxk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_v3aYAOeHqStdF7gnl3QE0w_p5LPkKgt";
+
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Where to go after a successful login
+// Default page to open after a successful login (used when no valid ?next= is given)
 const HOME_PAGE = "index.html";
+
+// Pages a user is allowed to be sent back to after logging in.
+// Keep this as a strict allow-list so nobody can craft a link like
+// login.html?next=https://evil.com and redirect users to another site (open redirect).
+const ALLOWED_PAGES = ["index.html", "orders.html", "admin.html"];
+
+// Link where the password-reset email sends the customer
 const RESET_PAGE_URL = "https://mayanksh3479.github.io/laundry-website/reset-password.html";
 
+/**
+ * Decide where to send the user after login / sign-up.
+ * Reads the ?next= value from the URL (e.g. login.html?next=admin.html).
+ * Returns that page only if it is in ALLOWED_PAGES, otherwise falls back to HOME_PAGE.
+ */
+function nextPage() {
+  const next = new URLSearchParams(window.location.search).get("next");
+  return ALLOWED_PAGES.includes(next) ? next : HOME_PAGE;
+}
+
+// --- DOM references --------------------------------------------------------
 const form = document.getElementById("auth-form");
 const tabLogin = document.getElementById("tab-login");
 const tabSignup = document.getElementById("tab-signup");
@@ -21,23 +50,30 @@ const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 const confirmInput = document.getElementById("confirm-password");
 
-let mode = "login"; // "login" or "signup"
+// Current form mode: "login" or "signup"
+let mode = "login";
 
-// Already logged in? Skip this page.
+// Already logged in? Skip this page and go straight to the destination.
 db.auth.getSession().then(function ({ data }) {
-  if (data.session) window.location.replace(HOME_PAGE);
+  if (data.session) window.location.replace(nextPage());
 });
 
+// --- Message helpers -------------------------------------------------------
+
+// Show a success or error message above the form
 function showMessage(text, isError) {
   messageBox.textContent = text;
   messageBox.className = "auth-message " + (isError ? "error" : "success");
   messageBox.hidden = false;
 }
 
+// Hide and empty the message box
 function clearMessage() {
   messageBox.hidden = true;
   messageBox.textContent = "";
 }
+
+// --- Password show / hide --------------------------------------------------
 
 // Show / Hide buttons next to the password fields
 document.querySelectorAll(".toggle-pass").forEach(function (button) {
@@ -45,12 +81,14 @@ document.querySelectorAll(".toggle-pass").forEach(function (button) {
     const input = button.parentElement.querySelector("input");
     const showing = input.type === "text";
 
+    // Flip between plain text and masked, and keep the label accessible
     input.type = showing ? "password" : "text";
     button.textContent = showing ? "Show password" : "Hide password";
     button.setAttribute("aria-label", showing ? "Show password" : "Hide password");
   });
 });
 
+// Clear both password boxes and put the toggles back to "hidden"
 function resetPasswordFields() {
   passwordInput.value = "";
   confirmInput.value = "";
@@ -62,15 +100,20 @@ function resetPasswordFields() {
   });
 }
 
+// --- Login / sign-up tabs --------------------------------------------------
+
+// Switch the form between login and sign-up layouts
 function setMode(newMode) {
   mode = newMode;
   const isSignup = mode === "signup";
 
+  // Highlight the active tab (and tell screen readers which is selected)
   tabLogin.classList.toggle("active", !isSignup);
   tabSignup.classList.toggle("active", isSignup);
   tabLogin.setAttribute("aria-selected", String(!isSignup));
   tabSignup.setAttribute("aria-selected", String(isSignup));
 
+  // Sign-up needs extra fields; "forgot password" only makes sense on login
   signupFields.hidden = !isSignup;
   confirmField.hidden = !isSignup;
   passwordHint.hidden = !isSignup;
@@ -78,6 +121,7 @@ function setMode(newMode) {
   submitButton.textContent = isSignup ? "Create account" : "Log in";
   passwordInput.autocomplete = isSignup ? "new-password" : "current-password";
 
+  // Don't carry a typed password or an old message across tabs
   resetPasswordFields();
   clearMessage();
 }
@@ -88,6 +132,8 @@ tabLogin.addEventListener("click", function () {
 tabSignup.addEventListener("click", function () {
   setMode("signup");
 });
+
+// --- Error handling --------------------------------------------------------
 
 // Turns Supabase errors into a clear reason the customer can act on
 function friendlyError(error) {
@@ -132,13 +178,17 @@ function friendlyError(error) {
     : "Could not continue. Please try again.";
 }
 
+// --- Form submit (login + sign-up) ----------------------------------------
+
 form.addEventListener("submit", async function (event) {
+  // Stop the browser's default page reload; we handle submit ourselves
   event.preventDefault();
   clearMessage();
 
   const email = emailInput.value.trim();
   const password = passwordInput.value;
 
+  // Client-side checks first, so we don't call the server with bad data
   if (!/^\S+@\S+\.\S+$/.test(email)) {
     showMessage("Enter a valid email address.", true);
     return;
@@ -154,6 +204,7 @@ form.addEventListener("submit", async function (event) {
 
   if (mode === "signup") {
     fullName = nameInput.value.trim();
+    // Keep digits only and drop a leading +91 / 91 country code
     phone = phoneInput.value.replace(/\D/g, "").replace(/^91(?=\d{10}$)/, "");
 
     if (fullName.length < 2) {
@@ -161,11 +212,13 @@ form.addEventListener("submit", async function (event) {
       return;
     }
 
+    // Indian mobile numbers: 10 digits starting with 6-9
     if (!/^[6-9]\d{9}$/.test(phone)) {
       showMessage("Enter a valid 10-digit mobile number.", true);
       return;
     }
 
+    // Password rule: 6+ chars with a lowercase, an uppercase and a digit
     if (
       password.length < 6 ||
       !/[a-z]/.test(password) ||
@@ -182,6 +235,7 @@ form.addEventListener("submit", async function (event) {
     }
   }
 
+  // Disable the button while waiting so the form can't be double-submitted
   const label = submitButton.textContent;
   submitButton.disabled = true;
   submitButton.textContent = "Please wait...";
@@ -191,7 +245,8 @@ form.addEventListener("submit", async function (event) {
       const { error } = await db.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      window.location.href = HOME_PAGE;
+      // Logged in: send the user back to the page they came from (or home)
+      window.location.href = nextPage();
     } else {
       // Stop early if this mobile number already belongs to an account
       const { data: phoneTaken, error: phoneError } = await db.rpc("phone_exists", {
@@ -204,6 +259,7 @@ form.addEventListener("submit", async function (event) {
         return;
       }
 
+      // Create the account; name and phone are stored as user metadata
       const { data, error } = await db.auth.signUp({
         email,
         password,
@@ -213,8 +269,9 @@ form.addEventListener("submit", async function (event) {
 
       if (data.session) {
         // Email confirmation is switched off in Supabase: logged in right away
-        window.location.href = HOME_PAGE;
+        window.location.href = nextPage();
       } else {
+        // Email confirmation is on: ask the customer to confirm, then log in
         setMode("login");
         showMessage("Account created. Check your email to confirm it, then log in.", false);
       }
@@ -223,10 +280,13 @@ form.addEventListener("submit", async function (event) {
     console.log("Auth failed:", error.message);
     showMessage(friendlyError(error), true);
   } finally {
+    // Always re-enable the button, whether the attempt worked or failed
     submitButton.disabled = false;
     if (submitButton.textContent === "Please wait...") submitButton.textContent = label;
   }
 });
+
+// --- Forgot password -------------------------------------------------------
 
 forgotButton.addEventListener("click", async function () {
   clearMessage();
@@ -245,6 +305,7 @@ forgotButton.addEventListener("click", async function () {
   if (error) {
     showMessage(friendlyError(error), true);
   } else {
+    // Same wording whether or not the email exists, so we don't leak which emails have accounts
     showMessage("If this email has an account, a reset link is on its way.", false);
   }
 });
